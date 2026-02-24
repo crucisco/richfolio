@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 import { recipientEmail } from "./config.js";
-import type { AllocationReport } from "./analyze.js";
+import type { AllocationItem, AllocationReport } from "./analyze.js";
 import type { NewsItem } from "./fetchNews.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -39,6 +39,14 @@ function weekBar(pct: number | null): string {
   const filled = Math.round(pct * 10);
   const bar = "█".repeat(filled) + "░".repeat(10 - filled);
   return `${bar} ${(pct * 100).toFixed(0)}%`;
+}
+
+function fmtPE(item: AllocationItem): string {
+  if (item.trailingPE == null) return "—";
+  const value = item.trailingPE.toFixed(1);
+  if (item.peSignal === "✅ below avg") return `${value} ✅`;
+  if (item.peSignal === "⚠️ above avg") return `${value} ⚠️`;
+  return value;
 }
 
 // ── Build HTML ──────────────────────────────────────────────────────
@@ -90,6 +98,7 @@ export function buildEmailHtml(
 ${buys.length > 0 ? `
 <tr><td style="padding:20px 24px 8px;background:${S.cardBg};">
   <h2 style="margin:0;font-size:16px;color:${S.blue};">Priority Buys</h2>
+  <p style="margin:4px 0 0;font-size:11px;color:${S.muted};">Gap = how far below your target allocation. Larger gap = higher priority to buy.</p>
 </td></tr>
 <tr><td style="padding:0 24px 16px;background:${S.cardBg};">
   <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;">
@@ -107,7 +116,7 @@ ${buys.length > 0 ? `
       <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:right;color:${S.red};">${fmtPct(b.gapPct)}</td>
       <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:right;">${b.suggestedBuyShares.toFixed(1)}</td>
       <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:right;">${fmt$(b.suggestedBuyValue)}</td>
-      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:center;">${b.peSignal ?? "—"}</td>
+      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:center;">${fmtPE(b)}</td>
       <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:center;">${b.weekSignal ?? "—"}</td>
     </tr>`).join("")}
   </table>
@@ -126,6 +135,7 @@ ${buys.length > 0 ? `
       <td style="padding:5px 3px;border-bottom:1px solid ${S.border};text-align:right;">Current</td>
       <td style="padding:5px 3px;border-bottom:1px solid ${S.border};text-align:right;">Target</td>
       <td style="padding:5px 3px;border-bottom:1px solid ${S.border};text-align:right;">Gap</td>
+      <td style="padding:5px 3px;border-bottom:1px solid ${S.border};text-align:right;">P/E</td>
       <td style="padding:5px 3px;border-bottom:1px solid ${S.border};text-align:right;">Div</td>
       <td style="padding:5px 3px;border-bottom:1px solid ${S.border};text-align:right;">Beta</td>
       <td style="padding:5px 3px;border-bottom:1px solid ${S.border};">52w Range</td>
@@ -137,6 +147,7 @@ ${buys.length > 0 ? `
       <td style="padding:5px 3px;border-bottom:1px solid ${S.border};text-align:right;">${item.currentPct.toFixed(1)}%</td>
       <td style="padding:5px 3px;border-bottom:1px solid ${S.border};text-align:right;">${item.targetPct.toFixed(1)}%</td>
       <td style="padding:5px 3px;border-bottom:1px solid ${S.border};text-align:right;color:${gapColor(item.gapPct)};">${fmtPct(item.gapPct)}</td>
+      <td style="padding:5px 3px;border-bottom:1px solid ${S.border};text-align:right;">${fmtPE(item)}</td>
       <td style="padding:5px 3px;border-bottom:1px solid ${S.border};text-align:right;">${item.dividendYield != null ? (item.dividendYield * 100).toFixed(1) + "%" : "—"}</td>
       <td style="padding:5px 3px;border-bottom:1px solid ${S.border};text-align:right;">${item.beta?.toFixed(2) ?? "—"}</td>
       <td style="padding:5px 3px;border-bottom:1px solid ${S.border};font-family:monospace;font-size:11px;">${weekBar(item.fiftyTwoWeekPercent)}</td>

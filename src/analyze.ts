@@ -17,7 +17,8 @@ export interface AllocationItem {
   suggestedBuyShares: number;
   suggestedBuyValue: number;
   price: number;
-  peSignal: "✅ below avg" | "⚠️ above avg" | "—" | null;
+  trailingPE: number | null;
+  peSignal: "✅ below avg" | "⚠️ above avg" | null;
   weekSignal: "🟢 near low" | "🟡 near high" | "—" | null;
   fiftyTwoWeekPercent: number | null;
   dividendYield: number | null;
@@ -73,14 +74,12 @@ export function runAnalysis(
     const suggestedBuyShares =
       suggestedBuyValue > 0 ? suggestedBuyValue / quote.price : 0;
 
-    // P/E signal (individual stocks only)
+    // P/E signal (only when benchmark exists to compare against)
     let peSignal: AllocationItem["peSignal"] = null;
     const benchmark = peBenchmarks[ticker];
     if (quote.trailingPE != null && benchmark != null) {
       peSignal =
         quote.trailingPE < benchmark ? "✅ below avg" : "⚠️ above avg";
-    } else if (benchmark != null) {
-      peSignal = "—"; // has benchmark but no current P/E
     }
 
     // 52-week position signal
@@ -105,6 +104,7 @@ export function runAnalysis(
       suggestedBuyShares: Math.round(suggestedBuyShares * 100) / 100,
       suggestedBuyValue: Math.round(suggestedBuyValue * 100) / 100,
       price: quote.price,
+      trailingPE: quote.trailingPE,
       peSignal,
       weekSignal,
       fiftyTwoWeekPercent: quote.fiftyTwoWeekPercent,
