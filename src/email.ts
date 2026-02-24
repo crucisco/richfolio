@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import { recipientEmail } from "./config.js";
 import type { AllocationItem, AllocationReport } from "./analyze.js";
+import type { AIBuyRecommendation } from "./aiAnalysis.js";
 import type { NewsItem } from "./fetchNews.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -49,10 +50,100 @@ function fmtPE(item: AllocationItem): string {
   return value;
 }
 
+function actionBadge(action: string): string {
+  const colors: Record<string, { bg: string; text: string }> = {
+    "STRONG BUY": { bg: "#2ecc71", text: "#000" },
+    BUY: { bg: "#3498db", text: "#fff" },
+    HOLD: { bg: "#95a5a6", text: "#fff" },
+    WAIT: { bg: "#e74c3c", text: "#fff" },
+  };
+  const c = colors[action] || colors.HOLD;
+  return `<span style="background:${c.bg};color:${c.text};padding:2px 8px;border-radius:4px;font-size:11px;font-weight:bold;">${action}</span>`;
+}
+
+function confidenceBar(pct: number): string {
+  const color = pct >= 70 ? S.green : pct >= 40 ? S.yellow : S.red;
+  return `<div style="display:inline-block;width:60px;height:8px;background:${S.border};border-radius:4px;vertical-align:middle;">` +
+    `<div style="width:${pct}%;height:100%;background:${color};border-radius:4px;"></div>` +
+    `</div> <span style="font-size:11px;color:${S.muted};">${pct}%</span>`;
+}
+
+// ── AI Recommendations Section ──────────────────────────────────────
+function buildAISection(aiRecs: AIBuyRecommendation[]): string {
+  const actionable = aiRecs.filter(
+    (r) => r.action === "STRONG BUY" || r.action === "BUY"
+  );
+  const others = aiRecs.filter(
+    (r) => r.action !== "STRONG BUY" && r.action !== "BUY"
+  );
+
+  return `
+<tr><td style="padding:20px 24px 8px;background:${S.cardBg};">
+  <h2 style="margin:0;font-size:16px;color:${S.blue};">AI Buy Recommendations</h2>
+  <p style="margin:4px 0 0;font-size:11px;color:${S.muted};">Powered by Gemini — considers valuation, allocation gap, news sentiment, and risk.</p>
+</td></tr>
+<tr><td style="padding:0 24px 16px;background:${S.cardBg};">
+  ${actionable.length > 0 ? actionable.map((rec) => `
+  <div style="padding:10px 0;border-bottom:1px solid ${S.border};">
+    <div style="margin-bottom:4px;">
+      <span style="font-weight:bold;font-size:14px;color:#fff;">${rec.ticker}</span>
+      &nbsp;${actionBadge(rec.action)}
+      &nbsp;${confidenceBar(rec.confidence)}
+      ${rec.suggestedBuyValue > 0 ? `<span style="float:right;font-weight:bold;color:#fff;">${fmt$(rec.suggestedBuyValue)}</span>` : ""}
+    </div>
+    <div style="font-size:12px;color:${S.text};margin-top:4px;">${rec.reason}</div>
+  </div>`).join("") : `<p style="color:${S.muted};font-size:13px;">No strong buy opportunities identified today.</p>`}
+  ${others.length > 0 ? `
+  <div style="margin-top:12px;">
+    <div style="font-size:11px;color:${S.muted};text-transform:uppercase;margin-bottom:6px;">Hold / Wait</div>
+    ${others.map((rec) => `
+    <div style="padding:4px 0;font-size:12px;">
+      <span style="font-weight:bold;">${rec.ticker}</span>
+      &nbsp;${actionBadge(rec.action)}
+      <span style="color:${S.muted};margin-left:8px;">${rec.reason}</span>
+    </div>`).join("")}
+  </div>` : ""}
+</td></tr>`;
+}
+
+// ── Fallback Priority Buys Section ──────────────────────────────────
+function buildFallbackBuysSection(report: AllocationReport): string {
+  const buys = report.items.filter((i) => i.gapPct > 0.5).slice(0, 5);
+  if (buys.length === 0) return "";
+
+  return `
+<tr><td style="padding:20px 24px 8px;background:${S.cardBg};">
+  <h2 style="margin:0;font-size:16px;color:${S.blue};">Priority Buys</h2>
+  <p style="margin:4px 0 0;font-size:11px;color:${S.muted};">Sorted by allocation gap. Set GEMINI_API_KEY for AI-powered recommendations.</p>
+</td></tr>
+<tr><td style="padding:0 24px 16px;background:${S.cardBg};">
+  <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;">
+    <tr style="color:${S.muted};font-size:11px;text-transform:uppercase;">
+      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};">Ticker</td>
+      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:right;">Gap</td>
+      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:right;">Buy ~Shares</td>
+      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:right;">Buy ~Value</td>
+      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:center;">P/E</td>
+      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:center;">52w</td>
+    </tr>
+    ${buys.map((b) => `
+    <tr>
+      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};font-weight:bold;">${b.ticker}</td>
+      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:right;color:${S.red};">${fmtPct(b.gapPct)}</td>
+      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:right;">${b.suggestedBuyShares.toFixed(1)}</td>
+      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:right;">${fmt$(b.suggestedBuyValue)}</td>
+      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:center;">${fmtPE(b)}</td>
+      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:center;">${b.weekSignal ?? "—"}</td>
+    </tr>`).join("")}
+  </table>
+</td></tr>`;
+}
+
 // ── Build HTML ──────────────────────────────────────────────────────
 export function buildEmailHtml(
   report: AllocationReport,
-  news: Record<string, NewsItem[]>
+  news: Record<string, NewsItem[]>,
+  aiRecs: AIBuyRecommendation[] = []
 ): string {
   const date = new Date().toLocaleDateString("en-AU", {
     weekday: "long",
@@ -61,8 +152,12 @@ export function buildEmailHtml(
     day: "numeric",
   });
 
-  const buys = report.items.filter((i) => i.gapPct > 0.5).slice(0, 5);
   const tickersWithNews = Object.entries(news).filter(([, items]) => items.length > 0);
+
+  // Use AI section if available, otherwise fallback to gap-based
+  const buysSection = aiRecs.length > 0
+    ? buildAISection(aiRecs)
+    : buildFallbackBuysSection(report);
 
   return `<!DOCTYPE html>
 <html>
@@ -94,34 +189,8 @@ export function buildEmailHtml(
   </tr></table>
 </td></tr>
 
-<!-- Priority Buys -->
-${buys.length > 0 ? `
-<tr><td style="padding:20px 24px 8px;background:${S.cardBg};">
-  <h2 style="margin:0;font-size:16px;color:${S.blue};">Priority Buys</h2>
-  <p style="margin:4px 0 0;font-size:11px;color:${S.muted};">Gap = how far below your target allocation. Larger gap = higher priority to buy.</p>
-</td></tr>
-<tr><td style="padding:0 24px 16px;background:${S.cardBg};">
-  <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;">
-    <tr style="color:${S.muted};font-size:11px;text-transform:uppercase;">
-      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};">Ticker</td>
-      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:right;">Gap</td>
-      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:right;">Buy ~Shares</td>
-      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:right;">Buy ~Value</td>
-      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:center;">P/E</td>
-      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:center;">52w</td>
-    </tr>
-    ${buys.map((b) => `
-    <tr>
-      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};font-weight:bold;">${b.ticker}</td>
-      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:right;color:${S.red};">${fmtPct(b.gapPct)}</td>
-      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:right;">${b.suggestedBuyShares.toFixed(1)}</td>
-      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:right;">${fmt$(b.suggestedBuyValue)}</td>
-      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:center;">${fmtPE(b)}</td>
-      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:center;">${b.weekSignal ?? "—"}</td>
-    </tr>`).join("")}
-  </table>
-</td></tr>
-` : ""}
+<!-- Buy Recommendations (AI or fallback) -->
+${buysSection}
 
 <!-- Full Allocation Table -->
 <tr><td style="padding:20px 24px 8px;background:${S.cardBg};border-top:1px solid ${S.border};">
@@ -188,9 +257,10 @@ ${tickersWithNews.length > 0 ? `
 // ── Send email ──────────────────────────────────────────────────────
 export async function sendBrief(
   report: AllocationReport,
-  news: Record<string, NewsItem[]>
+  news: Record<string, NewsItem[]>,
+  aiRecs: AIBuyRecommendation[] = []
 ): Promise<void> {
-  const html = buildEmailHtml(report, news);
+  const html = buildEmailHtml(report, news, aiRecs);
 
   const { error } = await resend.emails.send({
     from: "Richfolio <onboarding@resend.dev>",

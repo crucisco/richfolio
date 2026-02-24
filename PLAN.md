@@ -4,142 +4,111 @@ A step-by-step build guide. Hand this to Claude Code and work through it phase b
 
 ---
 
-## Phase 1 — Project Scaffold
+## Phase 1 — Project Scaffold ✅
 
-- [ ] Init `package.json` with `tsx`, `typescript`, `dotenv`
-- [ ] Add Yahoo Finance client: `yahoo-finance2`
-- [ ] Add Resend SDK: `resend`
-- [ ] Configure `tsconfig.json` (ESNext, strict)
-- [ ] Create `.env.example` with `RESEND_API_KEY`, `NEWS_API_KEY`
-- [ ] Create `src/config.ts` with target portfolio, current holdings, total value, recipient email
-
-**Prompt for Claude Code:**
-> "Scaffold a TypeScript Node project in this folder. Install yahoo-finance2, resend, dotenv, tsx. Create tsconfig.json with strict mode and ESNext. Create src/config.ts with the portfolio config from README."
+- [x] Init `package.json` with `tsx`, `typescript`, `dotenv`
+- [x] Add Yahoo Finance client: `yahoo-finance2`
+- [x] Add Resend SDK: `resend`
+- [x] Configure `tsconfig.json` (ESNext, strict, ESM)
+- [x] Create `.env.example` with `RESEND_API_KEY`, `NEWS_API_KEY`, `GEMINI_API_KEY`
+- [x] Create `config.json` / `config.example.json` (gitignored private config)
+- [x] Create `src/config.ts` as typed loader for config.json + .env
 
 ---
 
-## Phase 2 — Price & Fundamentals Fetching (`src/fetchPrices.ts`)
+## Phase 2 — Price & Fundamentals Fetching (`src/fetchPrices.ts`) ✅
 
-Goal: For each ticker in target + current holdings, fetch:
-- Current price
-- P/E ratio (trailingPE, forwardPE)
-- 52-week high/low
-- 52-week % position (calculated: `(price - 52wLow) / (52wHigh - 52wLow)` — more actionable than raw numbers)
-- Market cap (for stocks)
-- Dividend yield (important for income ETFs like XLU, BSV)
-- Beta (volatility relative to market — helps assess portfolio risk)
-- For ETFs: price, 52w range + %, dividend yield, beta (no P/E)
-
-Use `yahoo-finance2` quoteSummary with `summaryDetail` + `defaultKeyStatistics` modules. Handle ETFs gracefully (they won't have P/E).
-
-**Prompt for Claude Code:**
-> "Create src/fetchPrices.ts. Use yahoo-finance2 to fetch price, trailingPE, forwardPE, fiftyTwoWeekHigh, fiftyTwoWeekLow, dividendYield, and beta for a list of tickers. Calculate fiftyTwoWeekPercent as (price - low) / (high - low). Return a typed Record<string, QuoteData>. Handle missing fields gracefully — ETFs won't have P/E. Export a fetchAllPrices(tickers: string[]) function."
+- [x] Fetch price, trailingPE, forwardPE, 52w high/low, marketCap, dividendYield, beta
+- [x] Calculate 52-week % position: `(price - low) / (high - low)`
+- [x] Handle ETFs gracefully (no P/E → null)
+- [x] Handle crypto tickers via `toYahooTicker()` (BTC → BTC-USD)
+- [x] Uses yahoo-finance2 v3 instance API with `quoteSummary`
 
 ---
 
-## Phase 3 — News Fetching (`src/fetchNews.ts`)
+## Phase 3 — News Fetching (`src/fetchNews.ts`) ✅
 
-Goal: For each ticker, fetch top 3 headlines from the last 24 hours via NewsAPI.
-
-- Batch tickers into a single request where possible (NewsAPI `q` param supports OR queries)
-- Return `Record<string, NewsItem[]>`
-- Limit to 3 articles per ticker, title + url + publishedAt only
-
-**Prompt for Claude Code:**
-> "Create src/fetchNews.ts. Use NewsAPI.org /v2/everything endpoint. For a list of tickers, batch fetch news articles from the last 24 hours. Return Record<string, {title, url, publishedAt}[]> with max 3 items per ticker. Use the NEWS_API_KEY env var."
+- [x] Batch tickers using OR queries to NewsAPI /v2/everything
+- [x] Match articles by ticker symbol AND company name (`TICKER_NAMES` map)
+- [x] Return max 3 articles per ticker with title, url, source, publishedAt
+- [x] Graceful skip when `NEWS_API_KEY` not set
 
 ---
 
-## Phase 4 — Allocation Analysis (`src/analyze.ts`)
+## Phase 4 — Allocation Analysis (`src/analyze.ts`) ✅
 
-Goal: Core logic. Given current holdings + prices + target allocations:
-
-1. **Calculate current portfolio value** per ticker (shares × price)
-2. **Calculate current allocation %** for each ticker
-3. **Calculate gap** = target% − current% for all target tickers
-4. **Priority score** = gap magnitude (larger gap = higher priority)
-5. **Suggested buy amount** = (gap% × totalPortfolioValue) / currentPrice → shares to buy
-6. **P/E signal**: compare trailing P/E to a hardcoded 5yr average benchmark (can be a static map for now, ETFs excluded)
-7. **52-week position signal**: flag tickers near 52w low (<20%) as potential opportunities, near 52w high (>80%) as caution
-8. **Portfolio beta**: weighted average beta across all holdings — single number showing overall portfolio risk
-9. **Dividend income estimate**: sum of (shares × price × dividendYield) across holdings
-10. Return a sorted list of `AllocationItem` with all fields
-
-**Prompt for Claude Code:**
-> "Create src/analyze.ts. Given priceData, currentHoldings, targetPortfolio, and totalPortfolioValue, calculate: current value per ticker, current allocation %, target allocation %, gap %, suggested shares to buy, P/E signal (below avg = ✅, above avg = ⚠️), 52-week position signal (near low = 🟢 opportunity, near high = 🟡 caution), portfolio-wide weighted beta, and estimated annual dividend income. Return a sorted AllocationReport array, highest gap first. Export a runAnalysis() function."
+- [x] Calculate current value, allocation %, gap % per ticker
+- [x] Suggested buy amounts (shares + USD) for underweight positions
+- [x] P/E signal vs configured benchmarks (individual stocks only)
+- [x] 52-week position signal (near low = opportunity, near high = caution)
+- [x] Portfolio-wide weighted beta
+- [x] Estimated annual dividend income
+- [x] Sorted by gap descending
 
 ---
 
-## Phase 5 — Email Template (`src/email.ts`)
+## Phase 5 — Email Template (`src/email.ts`) ✅
 
-Goal: Generate a clean HTML email and send via Resend.
-
-Structure:
-- Header: date + total estimated portfolio value + portfolio beta + estimated annual dividend income
-- Section 1: **Priority Buy List** (top 5 underweight tickers, with suggested buy amounts + P/E signal + 52w position)
-- Section 2: **Full Allocation Table** (all tickers, color-coded: red = underweight, green = on target, yellow = overweight. Columns include dividend yield, beta, 52w %)
-- Section 3: **News Digest** (grouped by ticker, top 3 headlines each, link to article)
-- Footer: "Edit src/config.ts to update your portfolio"
-
-Use inline CSS only (email client compatibility). Dark-friendly neutral palette.
-
-**Prompt for Claude Code:**
-> "Create src/email.ts. Generate an HTML email from an AllocationReport and news data. Use inline CSS, neutral dark palette. Sections: priority buys, full allocation table (color-coded rows), news digest grouped by ticker. Send via Resend SDK using RESEND_API_KEY. Export a sendBrief(report, news) function."
+- [x] Dark-themed HTML email with inline CSS
+- [x] Header: date, holdings value, portfolio beta, annual dividend estimate
+- [x] AI Buy Recommendations section (when Gemini available) with action badges + confidence bars
+- [x] Fallback: gap-based Priority Buys table (when no AI)
+- [x] Full Allocation Table with P/E, dividend yield, beta, 52w range bar
+- [x] News Digest grouped by ticker
+- [x] Send via Resend SDK
 
 ---
 
-## Phase 6 — Entry Point (`src/index.ts`)
+## Phase 6 — Entry Point (`src/index.ts`) ✅
 
-Wire everything together:
-
-```ts
-const tickers = allUniqueTickers(config)
-const prices = await fetchAllPrices(tickers)
-const news = await fetchNews(tickers)
-const report = runAnalysis(prices)
-await sendBrief(report, news)
-```
-
-Add error handling + a `console.log` summary so you can see output when running locally.
-
-**Prompt for Claude Code:**
-> "Create src/index.ts as the entry point. Import and call fetchAllPrices, fetchNews, runAnalysis, sendBrief in sequence. Add try/catch with useful error messages. Log a summary table to console showing tickers fetched and email send status."
+- [x] Wire: fetchPrices → fetchNews → runAnalysis → aiAnalyze → sendBrief
+- [x] Error handling with try/catch + useful console output
+- [x] Graceful degradation when API keys missing
 
 ---
 
-## Phase 7 — GitHub Actions Workflow
+## Phase 7 — GitHub Actions Workflow ✅
 
-File: `.github/workflows/morning-brief.yml`
-
-- Schedule: `cron: '0 22 * * *'` (10pm UTC = 8am AEST)
-- Uses: `actions/checkout@v4`, `actions/setup-node@v4` (Node 20)
-- Runs: `npm ci && npm run start`
-- Secrets: `RESEND_API_KEY`, `NEWS_API_KEY`
-- Add a `workflow_dispatch` trigger so you can test it manually from GitHub UI
-
-**Prompt for Claude Code:**
-> "Create .github/workflows/morning-brief.yml. Cron schedule 10pm UTC daily (8am AEST). Checkout, setup Node 20, npm ci, npm run start. Use RESEND_API_KEY and NEWS_API_KEY from secrets. Add workflow_dispatch for manual runs."
+- [x] `.github/workflows/morning-brief.yml`
+- [x] Cron: `0 22 * * *` (10pm UTC = 8am AEST)
+- [x] Node 20, npm ci, npm run start
+- [x] Secrets: `RESEND_API_KEY`, `NEWS_API_KEY`, `GEMINI_API_KEY`, `RECIPIENT_EMAIL`, `CONFIG_JSON`
+- [x] `workflow_dispatch` for manual trigger
+- [x] `CONFIG_JSON` secret written to file at runtime (private portfolio data)
 
 ---
 
-## Phase 8 — Test & Polish
+## Phase 8 — AI-Powered Buy Analysis (`src/aiAnalysis.ts`) ✅
 
-- [ ] Run `npm run dev` and verify email arrives
-- [ ] Check ETFs don't break P/E logic
-- [ ] Check BTC/ETH tickers work in yahoo-finance2 (use `BTC-USD`, `ETH-USD`)
-- [ ] Verify news batching doesn't hit rate limits
-- [ ] Push to GitHub, add secrets, trigger manual run from Actions tab
-- [ ] Confirm email arrives in prod
+- [x] Install `@google/genai` (Gemini 2.0 Flash, free tier)
+- [x] Single API call with all ticker data: price, P/E, 52w%, dividends, beta, gap, news
+- [x] Structured JSON output: action (STRONG BUY / BUY / HOLD / WAIT), confidence %, reason, suggested buy amount
+- [x] Prioritizes by value opportunity + allocation need (not just gap)
+- [x] Graceful fallback when `GEMINI_API_KEY` not set or API fails
+
+---
+
+## Phase 9 — Test & Polish
+
+- [x] Run `npm run dev` and verify email arrives
+- [x] Check ETFs don't break P/E logic
+- [x] Check BTC/ETH tickers work (BTC-USD, ETH-USD)
+- [x] Verify news batching doesn't hit rate limits
+- [x] Push to GitHub, add secrets, trigger manual run from Actions tab
+- [ ] Confirm AI analysis works in production (Gemini quota needs to activate)
+- [ ] Verify domain on Resend to send to any email address
 
 ---
 
 ## Known Gotchas
 
 - **Yahoo Finance tickers**: BTC → `BTC-USD`, ETH → `ETH-USD`. AMZN not AMAZ.
-- **ETFs have no P/E**: `yahoo-finance2` returns null — handle gracefully, show "N/A".
-- **NewsAPI free tier**: 100 requests/day. Batch ticker queries using OR syntax: `q=VOO OR QQQ OR SMH`.
-- **Resend free tier**: Requires domain verification for sending FROM a custom address. Use `onboarding@resend.dev` as sender for testing.
+- **ETFs have no P/E**: `yahoo-finance2` returns null — handled gracefully, shows "N/A".
+- **NewsAPI free tier**: 100 requests/day. Batched using OR syntax + `TICKER_NAMES` map for company name matching.
+- **Resend free tier**: Must send from `onboarding@resend.dev`. Can only send to account owner email unless domain verified.
 - **GitHub Actions timezone**: always use UTC in cron, convert manually to your local time.
+- **Gemini free tier**: ~15 RPM, 250 RPD. New API keys may take minutes to activate quota.
+- **Config is gitignored**: `config.json` contains private portfolio data. In GitHub Actions, it's written from `CONFIG_JSON` secret.
 
 ---
 
