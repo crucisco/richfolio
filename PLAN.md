@@ -112,10 +112,39 @@ A step-by-step build guide. Hand this to Claude Code and work through it phase b
 
 ---
 
-## Future Ideas (post-MVP)
+## Phase 10 — Dynamic P/E Averages ✅
 
-- Add a `lastBought` field in config to avoid repeat "buy" signals
-- Weekly rebalancing summary (how far off are you after 7 days?)
-- P/E 5yr averages fetched dynamically instead of hardcoded
-- Webhook to Telegram instead of / in addition to email
-- **ETF overlap-aware priority**: `currentHoldings` can include stocks not in `targetPortfolio` (e.g. AAPL). When scoring buy priority for target ETFs, discount by the overlap with existing holdings. Example: if you hold 30 shares of AAPL, XLK (~20% AAPL) already gives you indirect exposure — so XLK's priority score should be reduced. Could use ETF holdings data from Yahoo Finance or a static top-holdings map per ETF.
+- [x] Add `earningsHistory` module to Yahoo Finance `quoteSummary` call
+- [x] Compute `avgPE` from quarterly EPS data (annualized)
+- [x] Use dynamic `avgPE` for P/E signal, fall back to manual `peBenchmarks` in config
+- [x] Make `peBenchmarks` optional in config.json
+- [x] Include `avgPE` in Gemini AI prompt
+
+---
+
+## Phase 11 — Telegram Webhook ✅
+
+- [x] Create `src/telegram.ts` using native `fetch` with Telegram Bot API
+- [x] Condensed HTML message with AI recs (or gap-based fallback) + news
+- [x] Graceful skip when `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` not set
+- [x] Wire into `src/index.ts` — independent of email (one failing doesn't block the other)
+- [x] Add secrets to `.github/workflows/morning-brief.yml`
+
+---
+
+## Phase 12 — ETF Overlap-Aware Priority ✅
+
+- [x] Fetch `topHoldings` from Yahoo Finance for each ETF
+- [x] Calculate overlap discount: reduce suggested buy by indirect exposure through held stocks
+- [x] Show overlap discounts in email, Telegram, and AI prompt
+- [x] Console logs overlap amounts (e.g., VOO -$973, QQQ -$919)
+
+---
+
+## Phase 13 — Weekly Rebalancing Summary ✅
+
+- [x] `--weekly` CLI flag skips news + AI, produces rebalancing-focused report
+- [x] `src/weeklyEmail.ts`: dark-themed rebalancing email with action table (BUY/TRIM/OK)
+- [x] Weekly Telegram message with underweight/overweight/on-target breakdown
+- [x] `npm run weekly` script in package.json
+- [x] GitHub Actions: weekly job runs on Sundays + manual `workflow_dispatch` with mode selector

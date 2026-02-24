@@ -71,13 +71,15 @@ function buildPrompt(
       `  Price: $${item.price.toFixed(2)}`,
       `  Trailing P/E: ${quote?.trailingPE?.toFixed(1) ?? "N/A"}`,
       `  Forward P/E: ${quote?.forwardPE?.toFixed(1) ?? "N/A"}`,
+      `  Avg P/E (historical): ${quote?.avgPE?.toFixed(1) ?? "N/A"}`,
       `  52-week position: ${item.fiftyTwoWeekPercent != null ? (item.fiftyTwoWeekPercent * 100).toFixed(0) + "%" : "N/A"} (0%=at low, 100%=at high)`,
       `  Dividend yield: ${item.dividendYield != null ? (item.dividendYield * 100).toFixed(2) + "%" : "N/A"}`,
       `  Beta: ${item.beta?.toFixed(2) ?? "N/A"}`,
       `  Current allocation: ${item.currentPct.toFixed(1)}% (target: ${item.targetPct.toFixed(1)}%, gap: ${item.gapPct > 0 ? "+" : ""}${item.gapPct.toFixed(1)}%)`,
+      item.overlapDiscount > 0 ? `  ETF overlap discount: -$${item.overlapDiscount.toFixed(0)} (${item.overlapPct.toFixed(0)}% of gap covered by held stocks)` : null,
       `  P/E signal: ${item.peSignal ?? "none"}`,
       headlines ? `  Recent news: ${headlines}` : `  Recent news: none`,
-    ].join("\n");
+    ].filter(Boolean).join("\n");
   });
 
   return `You are a portfolio analyst. Analyze these tickers and recommend which to buy.
@@ -100,7 +102,8 @@ INSTRUCTIONS:
    - reason: 1-2 sentences explaining why
    - suggestedBuyValue: realistic USD amount to invest (based on gap and portfolio size). $0 for HOLD/WAIT.
 5. Return only tickers with target > 0%. Sort by confidence descending (best buys first).
-6. Be concise and specific in reasons. Reference actual numbers (P/E, 52w%, gap).`;
+6. Be concise and specific in reasons. Reference actual numbers (P/E, 52w%, gap).
+7. For ETFs with an "ETF overlap discount", the suggested buy has already been reduced. Mention the overlap when it significantly affects the recommendation.`;
 }
 
 // ── Call Gemini ─────────────────────────────────────────────────────

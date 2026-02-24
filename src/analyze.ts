@@ -2,7 +2,6 @@ import {
   targetPortfolio,
   currentHoldings,
   totalPortfolioValueUSD,
-  peBenchmarks,
 } from "./config.js";
 import type { QuoteData } from "./fetchPrices.js";
 
@@ -16,6 +15,8 @@ export interface AllocationItem {
   gapPct: number;
   suggestedBuyShares: number;
   suggestedBuyValue: number;
+  overlapDiscount: number;
+  overlapPct: number;
   price: number;
   trailingPE: number | null;
   peSignal: "✅ below avg" | "⚠️ above avg" | null;
@@ -70,13 +71,33 @@ export function runAnalysis(
     const gapPct = targetPct - currentPct;
 
     // Suggested buy: only if underweight (gap > 0)
-    const suggestedBuyValue = gapPct > 0 ? (gapPct / 100) * portfolioValue : 0;
+    let suggestedBuyValue = gapPct > 0 ? (gapPct / 100) * portfolioValue : 0;
+
+    // ETF overlap discount: reduce buy amount by indirect exposure through held stocks
+    let overlapDiscount = 0;
+    if (quote.holdings && suggestedBuyValue > 0) {
+      for (const h of quote.holdings) {
+        const heldShares = currentHoldings[h.symbol] ?? 0;
+        const heldQuote = priceData[h.symbol];
+        if (heldShares > 0 && heldQuote) {
+          const heldValue = heldShares * heldQuote.price;
+          const etfExposure = h.holdingPercent * suggestedBuyValue;
+          overlapDiscount += Math.min(etfExposure, heldValue);
+        }
+      }
+      overlapDiscount = Math.min(overlapDiscount, suggestedBuyValue);
+      suggestedBuyValue -= overlapDiscount;
+    }
+    const overlapPct = overlapDiscount > 0 && gapPct > 0
+      ? (overlapDiscount / ((gapPct / 100) * portfolioValue)) * 100
+      : 0;
+
     const suggestedBuyShares =
       suggestedBuyValue > 0 ? suggestedBuyValue / quote.price : 0;
 
-    // P/E signal (only when benchmark exists to compare against)
+    // P/E signal: compare trailing P/E against dynamic avgPE from Yahoo earnings history
     let peSignal: AllocationItem["peSignal"] = null;
-    const benchmark = peBenchmarks[ticker];
+    const benchmark = quote.avgPE ?? null;
     if (quote.trailingPE != null && benchmark != null) {
       peSignal =
         quote.trailingPE < benchmark ? "✅ below avg" : "⚠️ above avg";
@@ -103,6 +124,8 @@ export function runAnalysis(
       gapPct: Math.round(gapPct * 100) / 100,
       suggestedBuyShares: Math.round(suggestedBuyShares * 100) / 100,
       suggestedBuyValue: Math.round(suggestedBuyValue * 100) / 100,
+      overlapDiscount: Math.round(overlapDiscount * 100) / 100,
+      overlapPct: Math.round(overlapPct * 100) / 100,
       price: quote.price,
       trailingPE: quote.trailingPE,
       peSignal,

@@ -7,7 +7,6 @@ export interface PortfolioConfig {
   targetPortfolio: Record<string, number>;
   currentHoldings: Record<string, number>;
   totalPortfolioValueUSD: number;
-  peBenchmarks: Record<string, number>;
 }
 
 // ── Load config.json ────────────────────────────────────────────────
@@ -26,7 +25,6 @@ const json = JSON.parse(raw) as PortfolioConfig;
 export const targetPortfolio = json.targetPortfolio;
 export const currentHoldings = json.currentHoldings;
 export const totalPortfolioValueUSD = json.totalPortfolioValueUSD;
-export const peBenchmarks = json.peBenchmarks;
 
 // ── Environment-only settings ───────────────────────────────────────
 export const recipientEmail =

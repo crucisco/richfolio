@@ -1,3 +1,9 @@
+---
+title: References
+layout: default
+nav_order: 9
+---
+
 # References & Prior Art
 
 Open-source repos referenced during the design and build of richfolio. Read these before building each module — they've already solved the hard parts.

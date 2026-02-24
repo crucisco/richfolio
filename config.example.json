@@ -22,13 +22,5 @@
     "TSM": 10,
     "VOO": 1
   },
-  "totalPortfolioValueUSD": 50000,
-  "peBenchmarks": {
-    "AAPL": 28,
-    "AMZN": 60,
-    "BIPC": 35,
-    "DVN": 8,
-    "INTC": 15,
-    "TSM": 20
-  }
+  "totalPortfolioValueUSD": 50000
 }
