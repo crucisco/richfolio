@@ -44,9 +44,9 @@ Not a portfolio app but the core dependency. Fully typed, actively maintained, w
 
 | Submodule | Fields we need |
 |-----------|---------------|
-| `summaryDetail` | `trailingPE`, `forwardPE`, `fiftyTwoWeekHigh`, `fiftyTwoWeekLow`, `marketCap` |
+| `summaryDetail` | `trailingPE`, `forwardPE`, `fiftyTwoWeekHigh`, `fiftyTwoWeekLow`, `marketCap`, `dividendYield` |
 | `financialData` | `currentPrice`, `targetMeanPrice`, `recommendationMean` |
-| `defaultKeyStatistics` | `enterpriseToEbitda`, `priceToBook`, `beta` |
+| `defaultKeyStatistics` | `enterpriseToEbitda`, `priceToBook`, `beta`, `fiveYearAvgDividendYield` |
 | `price` | `regularMarketPrice`, `regularMarketChangePercent` |
 
 **Mine from it:**

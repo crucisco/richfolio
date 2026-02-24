@@ -1,0 +1,34 @@
+{
+  "targetPortfolio": {
+    "AIQ": 5,
+    "SMH": 5,
+    "XLU": 5,
+    "ITA": 3,
+    "GLD": 10,
+    "IJH": 3,
+    "VOO": 20,
+    "QQQ": 15,
+    "ESGU": 9,
+    "BSV": 20,
+    "XLV": 2,
+    "BTC": 1.5,
+    "ETH": 1.5
+  },
+  "currentHoldings": {
+    "AAPL": 30,
+    "AMZN": 3,
+    "BIPC": 1,
+    "INTC": 5,
+    "TSM": 10,
+    "VOO": 1
+  },
+  "totalPortfolioValueUSD": 50000,
+  "peBenchmarks": {
+    "AAPL": 28,
+    "AMZN": 60,
+    "BIPC": 35,
+    "DVN": 8,
+    "INTC": 15,
+    "TSM": 20
+  }
+}

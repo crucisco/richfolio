@@ -1,0 +1,148 @@
+import {
+  targetPortfolio,
+  currentHoldings,
+  totalPortfolioValueUSD,
+  peBenchmarks,
+} from "./config.js";
+import type { QuoteData } from "./fetchPrices.js";
+
+// ── Types ───────────────────────────────────────────────────────────
+export interface AllocationItem {
+  ticker: string;
+  currentShares: number;
+  currentValue: number;
+  currentPct: number;
+  targetPct: number;
+  gapPct: number;
+  suggestedBuyShares: number;
+  suggestedBuyValue: number;
+  price: number;
+  peSignal: "✅ below avg" | "⚠️ above avg" | "—" | null;
+  weekSignal: "🟢 near low" | "🟡 near high" | "—" | null;
+  fiftyTwoWeekPercent: number | null;
+  dividendYield: number | null;
+  beta: number | null;
+}
+
+export interface AllocationReport {
+  items: AllocationItem[];
+  portfolioBeta: number | null;
+  estimatedAnnualDividend: number;
+  totalCurrentValue: number;
+}
+
+// ── Analysis ────────────────────────────────────────────────────────
+export function runAnalysis(
+  priceData: Record<string, QuoteData>
+): AllocationReport {
+  // 1. Calculate current value per ticker
+  const currentValues: Record<string, number> = {};
+  let totalCurrentValue = 0;
+
+  for (const [ticker, shares] of Object.entries(currentHoldings)) {
+    const quote = priceData[ticker];
+    if (!quote) continue;
+    const value = shares * quote.price;
+    currentValues[ticker] = value;
+    totalCurrentValue += value;
+  }
+
+  // Use the higher of actual value or configured estimate for allocation math
+  const portfolioValue = Math.max(totalCurrentValue, totalPortfolioValueUSD);
+
+  // 2. Build allocation items for ALL tickers (target + held)
+  const allTickers = new Set([
+    ...Object.keys(targetPortfolio),
+    ...Object.keys(currentHoldings),
+  ]);
+
+  const items: AllocationItem[] = [];
+
+  for (const ticker of allTickers) {
+    const quote = priceData[ticker];
+    if (!quote) continue;
+
+    const shares = currentHoldings[ticker] ?? 0;
+    const value = currentValues[ticker] ?? 0;
+    const currentPct = portfolioValue > 0 ? (value / portfolioValue) * 100 : 0;
+    const targetPct = targetPortfolio[ticker] ?? 0;
+    const gapPct = targetPct - currentPct;
+
+    // Suggested buy: only if underweight (gap > 0)
+    const suggestedBuyValue = gapPct > 0 ? (gapPct / 100) * portfolioValue : 0;
+    const suggestedBuyShares =
+      suggestedBuyValue > 0 ? suggestedBuyValue / quote.price : 0;
+
+    // P/E signal (individual stocks only)
+    let peSignal: AllocationItem["peSignal"] = null;
+    const benchmark = peBenchmarks[ticker];
+    if (quote.trailingPE != null && benchmark != null) {
+      peSignal =
+        quote.trailingPE < benchmark ? "✅ below avg" : "⚠️ above avg";
+    } else if (benchmark != null) {
+      peSignal = "—"; // has benchmark but no current P/E
+    }
+
+    // 52-week position signal
+    let weekSignal: AllocationItem["weekSignal"] = null;
+    if (quote.fiftyTwoWeekPercent != null) {
+      if (quote.fiftyTwoWeekPercent < 0.2) {
+        weekSignal = "🟢 near low";
+      } else if (quote.fiftyTwoWeekPercent > 0.8) {
+        weekSignal = "🟡 near high";
+      } else {
+        weekSignal = "—";
+      }
+    }
+
+    items.push({
+      ticker,
+      currentShares: shares,
+      currentValue: value,
+      currentPct: Math.round(currentPct * 100) / 100,
+      targetPct,
+      gapPct: Math.round(gapPct * 100) / 100,
+      suggestedBuyShares: Math.round(suggestedBuyShares * 100) / 100,
+      suggestedBuyValue: Math.round(suggestedBuyValue * 100) / 100,
+      price: quote.price,
+      peSignal,
+      weekSignal,
+      fiftyTwoWeekPercent: quote.fiftyTwoWeekPercent,
+      dividendYield: quote.dividendYield,
+      beta: quote.beta,
+    });
+  }
+
+  // Sort by gap descending (largest underweight first)
+  items.sort((a, b) => b.gapPct - a.gapPct);
+
+  // 3. Portfolio-wide weighted beta
+  let weightedBetaSum = 0;
+  let weightedBetaTotal = 0;
+  for (const item of items) {
+    if (item.beta != null && item.currentValue > 0) {
+      weightedBetaSum += item.beta * item.currentValue;
+      weightedBetaTotal += item.currentValue;
+    }
+  }
+  const portfolioBeta =
+    weightedBetaTotal > 0
+      ? Math.round((weightedBetaSum / weightedBetaTotal) * 100) / 100
+      : null;
+
+  // 4. Estimated annual dividend income
+  let estimatedAnnualDividend = 0;
+  for (const item of items) {
+    if (item.dividendYield != null && item.currentValue > 0) {
+      estimatedAnnualDividend += item.currentValue * item.dividendYield;
+    }
+  }
+  estimatedAnnualDividend = Math.round(estimatedAnnualDividend * 100) / 100;
+
+  return {
+    items,
+    portfolioBeta,
+    estimatedAnnualDividend,
+    totalCurrentValue: Math.round(totalCurrentValue * 100) / 100,
+  };
+}

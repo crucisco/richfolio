@@ -24,13 +24,16 @@ Goal: For each ticker in target + current holdings, fetch:
 - Current price
 - P/E ratio (trailingPE, forwardPE)
 - 52-week high/low
+- 52-week % position (calculated: `(price - 52wLow) / (52wHigh - 52wLow)` — more actionable than raw numbers)
 - Market cap (for stocks)
-- For ETFs: just price + 52w range (no P/E)
+- Dividend yield (important for income ETFs like XLU, BSV)
+- Beta (volatility relative to market — helps assess portfolio risk)
+- For ETFs: price, 52w range + %, dividend yield, beta (no P/E)
 
-Use `yahoo-finance2` quoteSummary. Handle ETFs gracefully (they won't have P/E).
+Use `yahoo-finance2` quoteSummary with `summaryDetail` + `defaultKeyStatistics` modules. Handle ETFs gracefully (they won't have P/E).
 
 **Prompt for Claude Code:**
-> "Create src/fetchPrices.ts. Use yahoo-finance2 to fetch price, trailingPE, forwardPE, fiftyTwoWeekHigh, fiftyTwoWeekLow for a list of tickers. Return a typed Record<string, QuoteData>. Handle missing fields gracefully — ETFs won't have P/E. Export a fetchAllPrices(tickers: string[]) function."
+> "Create src/fetchPrices.ts. Use yahoo-finance2 to fetch price, trailingPE, forwardPE, fiftyTwoWeekHigh, fiftyTwoWeekLow, dividendYield, and beta for a list of tickers. Calculate fiftyTwoWeekPercent as (price - low) / (high - low). Return a typed Record<string, QuoteData>. Handle missing fields gracefully — ETFs won't have P/E. Export a fetchAllPrices(tickers: string[]) function."
 
 ---
 
@@ -57,10 +60,13 @@ Goal: Core logic. Given current holdings + prices + target allocations:
 4. **Priority score** = gap magnitude (larger gap = higher priority)
 5. **Suggested buy amount** = (gap% × totalPortfolioValue) / currentPrice → shares to buy
 6. **P/E signal**: compare trailing P/E to a hardcoded 5yr average benchmark (can be a static map for now, ETFs excluded)
-7. Return a sorted list of `AllocationItem` with all fields
+7. **52-week position signal**: flag tickers near 52w low (<20%) as potential opportunities, near 52w high (>80%) as caution
+8. **Portfolio beta**: weighted average beta across all holdings — single number showing overall portfolio risk
+9. **Dividend income estimate**: sum of (shares × price × dividendYield) across holdings
+10. Return a sorted list of `AllocationItem` with all fields
 
 **Prompt for Claude Code:**
-> "Create src/analyze.ts. Given priceData, currentHoldings, targetPortfolio, and totalPortfolioValue, calculate: current value per ticker, current allocation %, target allocation %, gap %, suggested shares to buy, and a simple P/E signal (below avg = ✅ good entry, above avg = ⚠️). Return a sorted AllocationReport array, highest gap first. Export a runAnalysis() function."
+> "Create src/analyze.ts. Given priceData, currentHoldings, targetPortfolio, and totalPortfolioValue, calculate: current value per ticker, current allocation %, target allocation %, gap %, suggested shares to buy, P/E signal (below avg = ✅, above avg = ⚠️), 52-week position signal (near low = 🟢 opportunity, near high = 🟡 caution), portfolio-wide weighted beta, and estimated annual dividend income. Return a sorted AllocationReport array, highest gap first. Export a runAnalysis() function."
 
 ---
 
@@ -69,9 +75,9 @@ Goal: Core logic. Given current holdings + prices + target allocations:
 Goal: Generate a clean HTML email and send via Resend.
 
 Structure:
-- Header: date + total estimated portfolio value
-- Section 1: **Priority Buy List** (top 5 underweight tickers, with suggested buy amounts + P/E signal)
-- Section 2: **Full Allocation Table** (all tickers, color-coded: red = underweight, green = on target, yellow = overweight)
+- Header: date + total estimated portfolio value + portfolio beta + estimated annual dividend income
+- Section 1: **Priority Buy List** (top 5 underweight tickers, with suggested buy amounts + P/E signal + 52w position)
+- Section 2: **Full Allocation Table** (all tickers, color-coded: red = underweight, green = on target, yellow = overweight. Columns include dividend yield, beta, 52w %)
 - Section 3: **News Digest** (grouped by ticker, top 3 headlines each, link to article)
 - Footer: "Edit src/config.ts to update your portfolio"
 
@@ -143,3 +149,4 @@ File: `.github/workflows/morning-brief.yml`
 - Weekly rebalancing summary (how far off are you after 7 days?)
 - P/E 5yr averages fetched dynamically instead of hardcoded
 - Webhook to Telegram instead of / in addition to email
+- **ETF overlap-aware priority**: `currentHoldings` can include stocks not in `targetPortfolio` (e.g. AAPL). When scoring buy priority for target ETFs, discount by the overlap with existing holdings. Example: if you hold 30 shares of AAPL, XLK (~20% AAPL) already gives you indirect exposure — so XLK's priority score should be reduced. Could use ETF holdings data from Yahoo Finance or a static top-holdings map per ETF.

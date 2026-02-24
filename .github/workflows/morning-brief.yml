@@ -1,0 +1,30 @@
+name: Morning Brief
+
+on:
+  schedule:
+    # 10pm UTC = 8am AEST (next day)
+    - cron: "0 22 * * *"
+  workflow_dispatch: # Manual trigger from GitHub UI
+
+jobs:
+  send-brief:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # Write config.json from secret (gitignored, contains private portfolio data)
+      - run: echo '${{ secrets.CONFIG_JSON }}' > config.json
+
+      - run: npm run start
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
+          RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
