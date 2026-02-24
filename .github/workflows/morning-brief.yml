@@ -21,7 +21,9 @@ jobs:
       - run: npm ci
 
       # Write config.json from secret (gitignored, contains private portfolio data)
-      - run: echo '${{ secrets.CONFIG_JSON }}' > config.json
+      - run: printenv CONFIG_JSON > config.json
+        env:
+          CONFIG_JSON: ${{ secrets.CONFIG_JSON }}
 
       - run: npm run start
         env:
