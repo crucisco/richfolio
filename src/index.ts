@@ -53,6 +53,6 @@ try {
 
   console.log("\nDone.");
 } catch (err) {
-  console.error("Fatal error:", (err as Error).message);
+  console.error("Fatal error:", (err as Error).stack ?? (err as Error).message);
   process.exit(1);
 }

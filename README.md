@@ -1,5 +1,12 @@
 # Richfolio
 
+[![Morning Brief](https://github.com/furic/richfolio/actions/workflows/morning-brief.yml/badge.svg)](https://github.com/furic/richfolio/actions/workflows/morning-brief.yml)
+[![Docs](https://github.com/furic/richfolio/actions/workflows/docs.yml/badge.svg)](https://furic.github.io/richfolio/)
+[![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
+[![Cost](https://img.shields.io/badge/Cost-%240%2Fmonth-2ecc71)](https://furic.github.io/richfolio/features)
+
 A zero-maintenance portfolio monitoring system. Set your target allocations once, get daily briefings with allocation gaps, AI-powered buy signals, and relevant news — delivered via email and Telegram, automatically via GitHub Actions.
 
 ## Features
@@ -16,6 +23,18 @@ A zero-maintenance portfolio monitoring system. Set your target allocations once
 
 ## Quick Start
 
+1. **Fork** this repo on GitHub
+2. **Add secrets** — go to Settings → Secrets → Actions and add:
+   - `CONFIG_JSON` — your portfolio config (see [config.example.json](config.example.json))
+   - `RESEND_API_KEY` + `RECIPIENT_EMAIL` — for email delivery
+   - Optionally: `NEWS_API_KEY`, `GEMINI_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
+3. **Run** — trigger manually from Actions → Morning Brief → Run workflow, or wait for the daily cron (8am AEST)
+
+That's it — no local setup required. See the [full setup guide](https://furic.github.io/richfolio/getting-started) for detailed instructions on each API key.
+
+<details>
+<summary>Local development</summary>
+
 ```bash
 git clone https://github.com/furic/richfolio.git
 cd richfolio
@@ -24,12 +43,14 @@ cp config.example.json config.json
 cp .env.example .env
 ```
 
-Edit `config.json` with your portfolio data and `.env` with your API keys (see [docs/setup.md](docs/setup.md) for detailed instructions), then:
+Edit `config.json` and `.env`, then:
 
 ```bash
 npm run dev       # Daily brief (email + Telegram)
 npm run weekly    # Weekly rebalancing report
 ```
+
+</details>
 
 ## Stack
 
