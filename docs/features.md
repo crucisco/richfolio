@@ -12,7 +12,7 @@ Richfolio packs 9 capabilities into a single daily pipeline — all running on f
 
 ## AI Buy Recommendations
 
-Gemini 2.0 Flash analyzes your entire portfolio context — valuation metrics, allocation gaps, news sentiment, risk indicators — and returns ranked buy recommendations with confidence scores and reasoning.
+Gemini 2.5 Flash analyzes your entire portfolio context — valuation metrics, allocation gaps, news sentiment, risk indicators — and returns ranked buy recommendations with confidence scores and reasoning.
 
 Each ticker gets an action: **STRONG BUY**, **BUY**, **HOLD**, or **WAIT**, along with a suggested dollar amount. If the Gemini API is unavailable or quota is exhausted, Richfolio falls back to gap-based recommendations automatically.
 

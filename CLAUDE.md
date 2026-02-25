@@ -12,7 +12,7 @@ Richfolio is a zero-maintenance portfolio monitoring system that sends daily ema
 - **Execution**: `tsx` (TypeScript execute, no build step)
 - **Data**: `yahoo-finance2` v3 (instance-based API) for prices, fundamentals, earnings history, ETF holdings
 - **News**: NewsAPI.org free tier (100 req/day)
-- **AI**: Google Gemini 2.0 Flash via `@google/genai` (250 req/day free)
+- **AI**: Google Gemini 2.5 Flash via `@google/genai` (250 req/day free)
 - **Email**: Resend.com free tier (3,000 emails/month)
 - **Telegram**: Native `fetch` to Telegram Bot API (no npm package)
 - **Scheduler**: GitHub Actions cron (`0 22 * * *` = 8am AEST)

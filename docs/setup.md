@@ -121,8 +121,8 @@ cp .env.example .env
    ```
 
 **Free tier notes:**
-- 250 requests/day, 15 requests/minute (Richfolio uses 1 request per run)
-- Uses Gemini 2.0 Flash model
+- 250 requests/day, 10 requests/minute (Richfolio uses 1 request per run)
+- Uses Gemini 2.5 Flash model
 - New API keys may take a few minutes for quota to activate — you might see 429 errors initially
 - If not set or quota exhausted, the brief falls back to gap-based recommendations
 

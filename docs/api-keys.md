@@ -61,7 +61,7 @@ Provides top headlines per ticker for the daily brief.
 ## Google Gemini (AI Analysis) — Optional
 {: .text-yellow-200}
 
-Powers the AI buy recommendations with Gemini 2.0 Flash.
+Powers the AI buy recommendations with Gemini 2.5 Flash.
 
 1. Go to [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
 2. Click **Create API Key**, select a Google Cloud project (or create one)
@@ -70,7 +70,7 @@ Powers the AI buy recommendations with Gemini 2.0 Flash.
    GEMINI_API_KEY=AIzaSyxxxxxxxxxxxxxxxxx
    ```
 
-**Free tier:** 250 requests/day, 15 requests/minute. Richfolio uses 1 request per run. New keys may take a few minutes for quota to activate (you might see 429 errors initially). If not set or quota exhausted, falls back to gap-based recommendations.
+**Free tier:** 250 requests/day, 10 requests/minute. Richfolio uses 1 request per run. New keys may take a few minutes for quota to activate (you might see 429 errors initially). If not set or quota exhausted, falls back to gap-based recommendations.
 
 ---
 
