@@ -1,0 +1,14 @@
+# Dev/build files
+.github/
+docs/
+state/
+.env
+.env.example
+config.json
+CLAUDE.md
+PLAN.md
+.DS_Store
+
+# Screenshots and mockups
+docs/screenshots/
+docs/mockups/

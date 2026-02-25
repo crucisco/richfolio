@@ -18,10 +18,12 @@ Get Richfolio running locally in under 5 minutes.
 
 ---
 
-## Install
+## Fork & Install
+
+**Recommended:** [Fork the repo](https://github.com/furic/richfolio/fork) first so you can use GitHub Actions for automated daily briefs, intraday alerts, and weekly reports. Then clone your fork:
 
 ```bash
-git clone https://github.com/furic/richfolio.git
+git clone https://github.com/YOUR_USERNAME/richfolio.git
 cd richfolio
 npm install
 ```

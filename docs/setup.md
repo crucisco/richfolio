@@ -12,13 +12,27 @@ Complete instructions for setting up Richfolio locally and deploying to GitHub A
 
 ---
 
-## 2. Install
+## 2. Fork & Install
+
+While Richfolio can be run locally or triggered manually, **forking the repo is recommended** so you can use GitHub Actions to automatically schedule daily briefs, intraday alerts, and weekly reports — no server needed.
+
+### Fork the repo
+
+1. Go to [github.com/furic/richfolio](https://github.com/furic/richfolio)
+2. Click the **Fork** button (top right)
+3. Keep the default settings and click **Create fork**
+
+### Clone your fork
 
 ```bash
-git clone https://github.com/furic/richfolio.git
+git clone https://github.com/YOUR_USERNAME/richfolio.git
 cd richfolio
 npm install
 ```
+
+Replace `YOUR_USERNAME` with your GitHub username.
+
+> **Why fork?** GitHub Actions workflows only run on your own repositories. Forking gives you your own copy where the scheduled workflows will execute automatically, and you can pull upstream updates when new features are released.
 
 ---
 
@@ -177,17 +191,9 @@ Check your email and Telegram for the results.
 
 ## 6. Deploy to GitHub Actions
 
-### Push your repo
+### Add secrets to your fork
 
-```bash
-git add -A
-git commit -m "Initial setup"
-git push origin main
-```
-
-### Add secrets
-
-Go to your repo on GitHub → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
+Go to your forked repo on GitHub → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
 
 Add these secrets:
 
@@ -209,11 +215,28 @@ The workflow runs automatically:
 - **Daily**: Every day at 10pm UTC (8am AEST)
 - **Weekly**: Every Sunday at 10pm UTC (Monday 8am AEST)
 
-You can also trigger manually: repo → **Actions** → **Morning Brief** → **Run workflow** (choose daily or weekly mode).
+You can also trigger manually: repo → **Actions** → **Morning Brief** → **Run workflow** (choose daily, intraday, or weekly mode).
+
+### Enable workflows
+
+GitHub disables Actions on newly forked repos by default. Go to your fork → **Actions** tab → click **"I understand my workflows, go ahead and enable them"**.
 
 ### Updating your portfolio
 
 When your holdings change, update the `CONFIG_JSON` secret on GitHub with your new `config.json` content. The next scheduled run will use the updated data.
+
+### Pulling upstream updates
+
+To get new features from the original repo:
+
+```bash
+git remote add upstream https://github.com/furic/richfolio.git
+git fetch upstream
+git merge upstream/main
+git push origin main
+```
+
+Or use GitHub's **Sync fork** button on your fork's main page.
 
 ---
 

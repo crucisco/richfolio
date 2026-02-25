@@ -6,23 +6,25 @@ nav_order: 6
 
 # Deployment
 
-Richfolio runs as a GitHub Actions cron job — no server needed. Push your code, add secrets, and it runs automatically every morning.
+Richfolio runs as a GitHub Actions cron job — no server needed. Fork the repo, add secrets, and it runs automatically every morning.
 
 ---
 
-## Push Your Repo
+## Fork the Repo
 
-```bash
-git add -A
-git commit -m "Initial setup"
-git push origin main
-```
+If you haven't already, [fork richfolio](https://github.com/furic/richfolio/fork) to your own GitHub account. GitHub Actions workflows only run on your own repositories — forking gives you automated scheduling for daily briefs, intraday alerts, and weekly reports.
+
+---
+
+## Enable Workflows
+
+GitHub disables Actions on newly forked repos by default. Go to your fork → **Actions** tab → click **"I understand my workflows, go ahead and enable them"**.
 
 ---
 
 ## Add Secrets
 
-Go to your repo on GitHub → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
+Go to your forked repo on GitHub → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
 
 | Secret | Value | Required |
 |--------|-------|----------|
@@ -54,6 +56,21 @@ You can also trigger manually: repo → **Actions** → **Morning Brief** → **
 ## Updating Your Portfolio
 
 When your holdings change, update the `CONFIG_JSON` secret on GitHub with your new `config.json` content. The next scheduled run will use the updated data.
+
+---
+
+## Pulling Upstream Updates
+
+To get new features from the original repo:
+
+```bash
+git remote add upstream https://github.com/furic/richfolio.git
+git fetch upstream
+git merge upstream/main
+git push origin main
+```
+
+Or use GitHub's **Sync fork** button on your fork's main page.
 
 ---
 

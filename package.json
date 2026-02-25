@@ -13,8 +13,21 @@
     "type": "git",
     "url": "git+https://github.com/furic/richfolio.git"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "portfolio",
+    "investing",
+    "stocks",
+    "etf",
+    "allocation",
+    "rebalancing",
+    "ai",
+    "gemini",
+    "technical-analysis",
+    "email",
+    "telegram",
+    "github-actions"
+  ],
+  "author": "furic",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/furic/richfolio/issues"
