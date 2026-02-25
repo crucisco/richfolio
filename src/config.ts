@@ -3,10 +3,19 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 // ── Types ───────────────────────────────────────────────────────────
+export interface IntradayAlertConfig {
+  enabled: boolean;
+  confidenceIncreaseThreshold: number;
+  minConfidenceToAlert: number;
+  actionUpgradesAlert: boolean;
+  onlyAlertForActions: string[];
+}
+
 export interface PortfolioConfig {
   targetPortfolio: Record<string, number>;
   currentHoldings: Record<string, number>;
   totalPortfolioValueUSD: number;
+  intradayAlerts?: Partial<IntradayAlertConfig>;
 }
 
 // ── Load config.json ────────────────────────────────────────────────
@@ -25,6 +34,20 @@ const json = JSON.parse(raw) as PortfolioConfig;
 export const targetPortfolio = json.targetPortfolio;
 export const currentHoldings = json.currentHoldings;
 export const totalPortfolioValueUSD = json.totalPortfolioValueUSD;
+
+// ── Intraday alert config with defaults ─────────────────────────────
+const DEFAULT_INTRADAY: IntradayAlertConfig = {
+  enabled: true,
+  confidenceIncreaseThreshold: 5,
+  minConfidenceToAlert: 80,
+  actionUpgradesAlert: true,
+  onlyAlertForActions: ["STRONG BUY", "BUY"],
+};
+
+export const intradayConfig: IntradayAlertConfig = {
+  ...DEFAULT_INTRADAY,
+  ...json.intradayAlerts,
+};
 
 // ── Environment-only settings ───────────────────────────────────────
 export const recipientEmail =

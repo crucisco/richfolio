@@ -1,13 +1,18 @@
-import { allUniqueTickers } from "./config.js";
+import { allUniqueTickers, intradayConfig } from "./config.js";
 import { fetchAllPrices } from "./fetchPrices.js";
 import { fetchNews } from "./fetchNews.js";
+import type { NewsItem } from "./fetchNews.js";
 import { runAnalysis } from "./analyze.js";
 import { aiAnalyze } from "./aiAnalysis.js";
 import { sendBrief } from "./email.js";
-import { sendTelegramBrief, sendWeeklyTelegram } from "./telegram.js";
+import { sendTelegramBrief, sendWeeklyTelegram, sendIntradayTelegram } from "./telegram.js";
 import { sendWeeklyBrief } from "./weeklyEmail.js";
+import { saveBaseline, loadBaseline } from "./state.js";
+import { compareWithBaseline } from "./intradayCompare.js";
+import { sendIntradayAlert } from "./intradayEmail.js";
 
 const isWeekly = process.argv.includes("--weekly");
+const isIntraday = process.argv.includes("--intraday");
 
 try {
   const tickers = allUniqueTickers();
@@ -38,10 +43,73 @@ try {
     } catch (err) {
       console.error("Telegram send failed:", (err as Error).message);
     }
+  } else if (isIntraday) {
+    // Intraday mode: compare against morning baseline, alert on strengthening
+    console.log("\nMode: intraday check");
+
+    if (!intradayConfig.enabled) {
+      console.log("Intraday alerts disabled in config — exiting");
+      process.exit(0);
+    }
+
+    const baseline = loadBaseline();
+    if (!baseline) {
+      console.log("No morning baseline found for today — skipping intraday check");
+      process.exit(0);
+    }
+
+    // Run AI analysis WITHOUT news (saves NewsAPI quota)
+    const emptyNews: Record<string, NewsItem[]> = {};
+    const aiRecs = await aiAnalyze(report, prices, emptyNews);
+
+    if (aiRecs.length === 0) {
+      console.log("AI analysis returned no results — skipping comparison");
+      process.exit(0);
+    }
+
+    // Build price map for comparison
+    const priceMap: Record<string, number> = {};
+    for (const item of report.items) {
+      priceMap[item.ticker] = item.price;
+    }
+
+    const alerts = compareWithBaseline(aiRecs, priceMap, baseline, intradayConfig);
+
+    if (alerts.length === 0) {
+      console.log("No signals strengthened — no alert needed");
+    } else {
+      console.log(`\n${alerts.length} signal(s) strengthened:`);
+      for (const a of alerts) {
+        console.log(
+          `  ${a.ticker}: ${a.morningAction} ${a.morningConfidence}% → ${a.currentAction} ${a.currentConfidence}% (${a.triggerType})`
+        );
+      }
+
+      await sendIntradayAlert(alerts);
+      try {
+        await sendIntradayTelegram(alerts);
+      } catch (err) {
+        console.error("Telegram send failed:", (err as Error).message);
+      }
+    }
   } else {
     // Daily mode: full brief with news + AI
     const news = await fetchNews(tickers);
     const aiRecs = await aiAnalyze(report, prices, news);
+
+    // Save morning baseline for intraday comparison
+    if (aiRecs.length > 0) {
+      const priceMap: Record<string, number> = {};
+      for (const item of report.items) {
+        priceMap[item.ticker] = item.price;
+      }
+      saveBaseline({
+        timestamp: new Date().toISOString(),
+        date: new Date().toISOString().slice(0, 10),
+        recommendations: aiRecs,
+        prices: priceMap,
+      });
+    }
 
     await sendBrief(report, news, aiRecs);
     try {

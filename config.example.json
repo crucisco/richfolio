@@ -22,5 +22,12 @@
     "TSM": 10,
     "VOO": 1
   },
-  "totalPortfolioValueUSD": 50000
+  "totalPortfolioValueUSD": 50000,
+  "intradayAlerts": {
+    "enabled": true,
+    "confidenceIncreaseThreshold": 5,
+    "minConfidenceToAlert": 80,
+    "actionUpgradesAlert": true,
+    "onlyAlertForActions": ["STRONG BUY", "BUY"]
+  }
 }

@@ -1,6 +1,7 @@
 import type { AllocationReport } from "./analyze.js";
 import type { AIBuyRecommendation } from "./aiAnalysis.js";
 import type { NewsItem } from "./fetchNews.js";
+import type { IntradayAlert } from "./intradayCompare.js";
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
@@ -228,4 +229,79 @@ export async function sendWeeklyTelegram(
   }
 
   console.log("Weekly Telegram message sent");
+}
+
+// ── Intraday Alert Telegram ─────────────────────────────────────────
+function buildIntradayMessage(alerts: IntradayAlert[]): string {
+  const time = new Date().toLocaleTimeString("en-AU", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+
+  const lines: string[] = [];
+
+  lines.push(`🚨 <b>Intraday Alert</b> — ${time}`);
+  lines.push("");
+
+  for (const alert of alerts) {
+    const triggerLabel =
+      alert.triggerType === "action_upgrade"
+        ? "upgraded"
+        : alert.triggerType === "new_signal"
+          ? "new signal"
+          : "strengthened";
+
+    lines.push(
+      `${actionEmoji(alert.currentAction)} <b>${alert.currentAction} ${alert.ticker}</b> (${triggerLabel})`
+    );
+    lines.push(
+      `   ${alert.morningAction} ${alert.morningConfidence}% → ${alert.currentAction} ${alert.currentConfidence}% (+${alert.confidenceDelta})`
+    );
+    if (Math.abs(alert.priceDelta) >= 0.01) {
+      const dir = alert.priceDelta < 0 ? "down" : "up";
+      lines.push(
+        `   Price ${dir} ${Math.abs(alert.priceDelta).toFixed(1)}% since morning`
+      );
+    }
+    lines.push(`   <i>${alert.reason}</i>`);
+    if (alert.suggestedBuyValue > 0) {
+      lines.push(`   Suggested: ${fmt$(alert.suggestedBuyValue)}`);
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n").trim();
+}
+
+export async function sendIntradayTelegram(
+  alerts: IntradayAlert[]
+): Promise<void> {
+  if (!BOT_TOKEN || !CHAT_ID) {
+    console.log(
+      "TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set — skipping Telegram\n"
+    );
+    return;
+  }
+
+  const message = buildIntradayMessage(alerts);
+
+  const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: CHAT_ID,
+      text: message,
+      parse_mode: "HTML",
+      disable_web_page_preview: true,
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Telegram API error (${response.status}): ${body}`);
+  }
+
+  console.log("Intraday Telegram alert sent");
 }
