@@ -6,7 +6,7 @@ nav_order: 2
 
 # Features
 
-Richfolio packs 9 capabilities into a single daily pipeline — all running on free-tier APIs.
+Richfolio packs 10 capabilities into a single pipeline — all running on free-tier APIs.
 
 ---
 
@@ -15,6 +15,8 @@ Richfolio packs 9 capabilities into a single daily pipeline — all running on f
 Gemini 2.5 Flash analyzes your entire portfolio context — valuation metrics, allocation gaps, news sentiment, risk indicators — and returns ranked buy recommendations with confidence scores and reasoning.
 
 Each ticker gets an action: **STRONG BUY**, **BUY**, **HOLD**, or **WAIT**, along with a suggested dollar amount. If the Gemini API is unavailable or quota is exhausted, Richfolio falls back to gap-based recommendations automatically.
+
+![Daily Brief](screenshots/morning-debrief.png){: style="max-width: 400px; display: block; margin: 16px auto;" }
 
 ---
 
@@ -73,6 +75,24 @@ Two portfolio-wide metrics calculated from your current holdings:
 
 ---
 
+## Intraday Alerts
+
+Don't miss the buying moment of the day. After the morning brief runs, Richfolio saves the AI recommendations as a baseline. Intraday checks (`npm run intraday`) run every 2 hours during market hours, re-fetch prices, re-run Gemini analysis (skipping news to save API quota), and compare against the morning baseline.
+
+An alert fires only when:
+
+- **Confidence increases** by at least 5 percentage points (configurable) AND is above 80% (configurable)
+- **Action upgrades** — e.g., BUY in the morning becomes STRONG BUY in the afternoon
+- **New signal** — a ticker that wasn't recommended in the morning now has a strong buy signal
+
+Alerts are delivered via email and Telegram with a focused format showing the morning vs current comparison, price change, and AI reasoning. No alert = no message — you only hear from Richfolio when it matters.
+
+All thresholds are configurable via the `intradayAlerts` section in `config.json`. See [Configuration](configuration) for details.
+
+![Intraday Alert](screenshots/intraday-alert.html.png){: style="max-width: 400px; display: block; margin: 16px auto;" }
+
+---
+
 ## Weekly Rebalancing Report
 
 A separate weekly report (`npm run weekly`) focused purely on portfolio drift and rebalancing actions. No news, no AI — just a clean table showing:
@@ -82,6 +102,8 @@ A separate weekly report (`npm run weekly`) focused purely on portfolio drift an
 - **OK** — positions within target range
 
 Includes overweight warnings and flags holdings that aren't in your target portfolio.
+
+![Weekly Rebalance](screenshots/weekly-rebalance.png){: style="max-width: 400px; display: block; margin: 16px auto;" }
 
 ---
 

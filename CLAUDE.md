@@ -22,6 +22,7 @@ Richfolio is a zero-maintenance portfolio monitoring system that sends daily ema
 ```bash
 npm install          # Install dependencies
 npm run dev          # Run daily brief locally
+npm run intraday     # Run intraday alert check (compares vs morning)
 npm run weekly       # Run weekly rebalancing report
 npm run start        # Production daily entry point
 npx tsc --noEmit     # Type-check without emitting
@@ -29,18 +30,21 @@ npx tsc --noEmit     # Type-check without emitting
 
 ## Architecture
 
-Single-pipeline flow, no API server. Two modes: daily (default) and weekly (`--weekly`).
+Single-pipeline flow, no API server. Three modes: daily (default), intraday (`--intraday`), and weekly (`--weekly`).
 
 ```
-src/index.ts (entry point — parses --weekly flag, wires modules)
-  → src/config.ts          # Loads config.json + .env, exports typed portfolio data
+src/index.ts (entry point — parses --weekly/--intraday flags, wires modules)
+  → src/config.ts          # Loads config.json + .env, exports typed portfolio data + intradayConfig
   → src/fetchPrices.ts     # Yahoo Finance: price, P/E, avgPE, 52w, beta, dividends, ETF top holdings
   → src/fetchNews.ts       # NewsAPI: top 3 headlines per ticker (daily only)
   → src/analyze.ts         # Allocation gaps, P/E signals, ETF overlap discounts, portfolio beta, dividend estimate
-  → src/aiAnalysis.ts      # Gemini AI: buy recommendations with confidence scores (daily only)
+  → src/aiAnalysis.ts      # Gemini AI: buy recommendations with confidence scores (daily + intraday)
+  → src/state.ts           # Save/load morning baseline for intraday comparison
+  → src/intradayCompare.ts # Compare current AI recs vs morning baseline, detect strengthening
   → src/email.ts           # Daily dark-themed HTML email + Resend
+  → src/intradayEmail.ts   # Intraday alert email (focused, only triggered tickers)
   → src/weeklyEmail.ts     # Weekly rebalancing HTML email + Resend
-  → src/telegram.ts        # Telegram delivery (daily + weekly message builders)
+  → src/telegram.ts        # Telegram delivery (daily + intraday + weekly message builders)
 ```
 
 ## Config Architecture

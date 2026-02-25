@@ -16,6 +16,8 @@ A zero-maintenance portfolio monitoring system. Set your target allocations once
 
 Every morning, Richfolio fetches live market data, runs allocation analysis, generates AI buy recommendations, and delivers a polished report to your inbox and Telegram.
 
+![Daily Brief](screenshots/morning-debrief.png){: style="max-width: 400px; display: block; margin: 16px auto;" }
+
 | Component | Service | Cost |
 |-----------|---------|------|
 | Prices & Fundamentals | Yahoo Finance | Free |
@@ -41,6 +43,7 @@ Edit `config.json` with your portfolio data and `.env` with your API keys, then:
 
 ```bash
 npm run dev       # Daily brief (email + Telegram)
+npm run intraday  # Intraday alert check (compares vs morning)
 npm run weekly    # Weekly rebalancing report
 ```
 
@@ -52,7 +55,7 @@ See [Getting Started](getting-started) for full prerequisites, or jump to [API K
 
 | Page | Description |
 |------|-------------|
-| [Features](features) | What Richfolio does — all 9 capabilities explained |
+| [Features](features) | What Richfolio does — all 10 capabilities explained |
 | [Getting Started](getting-started) | Prerequisites, installation, and first run |
 | [Configuration](configuration) | `config.json` field reference, ticker formats, tips |
 | [API Keys](api-keys) | Step-by-step setup for Resend, NewsAPI, Gemini, Telegram |

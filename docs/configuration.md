@@ -33,7 +33,14 @@ cp config.example.json config.json
     "VOO": 1,
     "BTC": 0.0002
   },
-  "totalPortfolioValueUSD": 50000
+  "totalPortfolioValueUSD": 50000,
+  "intradayAlerts": {
+    "enabled": true,
+    "confidenceIncreaseThreshold": 5,
+    "minConfidenceToAlert": 80,
+    "actionUpgradesAlert": true,
+    "onlyAlertForActions": ["STRONG BUY", "BUY"]
+  }
 }
 ```
 
@@ -46,6 +53,21 @@ cp config.example.json config.json
 | `targetPortfolio` | Yes | Target allocation percentages. Keys are ticker symbols, values are percentages that should sum to ~100%. |
 | `currentHoldings` | Yes | Number of shares you currently own. Can include stocks not in your target (e.g., AAPL for ETF overlap detection). |
 | `totalPortfolioValueUSD` | Yes | Your estimated total portfolio value in USD. Used for allocation math when your actual holdings are smaller than the target. |
+| `intradayAlerts` | No | Intraday alert settings (see below). Defaults apply if omitted. |
+
+---
+
+## Intraday Alerts
+
+The `intradayAlerts` section controls when intraday checks send alerts. All fields are optional — sensible defaults apply.
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `enabled` | `true` | Master toggle. Set `false` to disable intraday alerts entirely. |
+| `confidenceIncreaseThreshold` | `5` | Minimum confidence increase (percentage points) to trigger an alert. |
+| `minConfidenceToAlert` | `80` | Only alert if the new confidence is at least this high. |
+| `actionUpgradesAlert` | `true` | Also alert when the action upgrades (e.g., BUY → STRONG BUY). |
+| `onlyAlertForActions` | `["STRONG BUY", "BUY"]` | Only consider tickers with these current actions. |
 
 ---
 

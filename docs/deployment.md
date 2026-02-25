@@ -44,9 +44,10 @@ Go to your repo on GitHub → **Settings** → **Secrets and variables** → **A
 The workflow runs automatically:
 
 - **Daily** — every day at 10pm UTC (8am AEST)
+- **Intraday** — weekdays at 10am, 12pm, 2pm, 4pm AEST (alerts only when signals strengthen)
 - **Weekly** — every Sunday at 10pm UTC (Monday 8am AEST)
 
-You can also trigger manually: repo → **Actions** → **Morning Brief** → **Run workflow** → choose daily or weekly mode.
+You can also trigger manually: repo → **Actions** → **Morning Brief** → **Run workflow** → choose daily, intraday, or weekly mode.
 
 ---
 

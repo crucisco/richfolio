@@ -9,6 +9,14 @@
 
 A zero-maintenance portfolio monitoring system. Set your target allocations once, get daily briefings with allocation gaps, AI-powered buy signals, and relevant news — delivered via email and Telegram, automatically via GitHub Actions.
 
+<p align="center">
+  <img src="docs/screenshots/morning-debrief.png" alt="Daily Brief" width="280">
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/intraday-alert.html.png" alt="Intraday Alert" width="280">
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/weekly-rebalance.png" alt="Weekly Rebalance" width="280">
+</p>
+
 ## Features
 
 - **AI Buy Recommendations** — Gemini-powered analysis considering valuation, allocation gap, news sentiment, and risk (with gap-based fallback)
@@ -18,6 +26,7 @@ A zero-maintenance portfolio monitoring system. Set your target allocations once
 - **52-Week Range Signals** — highlights tickers near their 52-week low (opportunity) or high (caution)
 - **News Digest** — top headlines per ticker from NewsAPI
 - **Portfolio Health** — weighted beta, estimated annual dividend income
+- **Intraday Alerts** — periodic checks that alert only when buy signals strengthen vs the morning brief (configurable thresholds)
 - **Weekly Rebalancing Report** — focused drift analysis with BUY/TRIM/OK actions
 - **Dual Delivery** — dark-themed HTML email via Resend + condensed Telegram message
 
@@ -47,6 +56,7 @@ Edit `config.json` and `.env`, then:
 
 ```bash
 npm run dev       # Daily brief (email + Telegram)
+npm run intraday  # Intraday alert check (compares vs morning)
 npm run weekly    # Weekly rebalancing report
 ```
 
@@ -70,18 +80,21 @@ npm run weekly    # Weekly rebalancing report
 richfolio/
 ├── src/
 │   ├── config.ts          # Typed loader for config.json + .env
-│   ├── index.ts           # Entry point (daily/weekly mode)
+│   ├── index.ts           # Entry point (daily/intraday/weekly mode)
 │   ├── fetchPrices.ts     # Yahoo Finance: price, P/E, 52w, beta, dividends, ETF holdings
 │   ├── fetchNews.ts       # NewsAPI: headlines per ticker
 │   ├── analyze.ts         # Allocation gaps, P/E signals, overlap discounts
 │   ├── aiAnalysis.ts      # Gemini AI buy recommendations
 │   ├── email.ts           # Daily HTML email template + Resend
+│   ├── intradayEmail.ts   # Intraday alert email template
+│   ├── intradayCompare.ts # Compare current vs morning baseline
+│   ├── state.ts           # Morning baseline persistence
 │   ├── weeklyEmail.ts     # Weekly rebalancing email template
-│   └── telegram.ts        # Telegram bot delivery (daily + weekly)
+│   └── telegram.ts        # Telegram bot delivery (daily/intraday/weekly)
 ├── docs/
 │   └── setup.md           # Detailed setup & API key guide
 ├── .github/workflows/
-│   └── morning-brief.yml  # Daily cron + weekly Sunday job
+│   └── morning-brief.yml  # Daily + intraday + weekly cron jobs
 ├── config.example.json    # Template portfolio config
 ├── .env.example           # Template environment variables
 ├── package.json
@@ -100,6 +113,8 @@ config.json + .env
 ```
 
 Weekly mode (`--weekly`) skips news and AI, producing a focused rebalancing report.
+
+Intraday mode (`--intraday`) re-fetches prices + AI (skipping news), compares against the morning baseline, and alerts only when buy signals strengthen significantly.
 
 ## Updating Your Portfolio
 

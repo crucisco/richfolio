@@ -30,17 +30,20 @@ Weekly mode (`--weekly`) skips news and AI, producing a focused rebalancing repo
 ```
 src/
 ├── config.ts          # Typed loader for config.json + .env
-├── index.ts           # Entry point — parses --weekly flag, wires modules
+├── index.ts           # Entry point — parses --weekly/--intraday flags, wires modules
 ├── fetchPrices.ts     # Yahoo Finance via yahoo-finance2 (instance-based v3 API)
 ├── fetchNews.ts       # NewsAPI with ticker-to-company-name mapping
 ├── analyze.ts         # Core analysis: gaps, P/E signals, overlap, portfolio metrics
 ├── aiAnalysis.ts      # Gemini prompt builder + JSON response parser
+├── state.ts           # Morning baseline save/load for intraday comparison
+├── intradayCompare.ts # Compare current AI recs vs morning baseline
 ├── email.ts           # Daily HTML email template + Resend delivery
+├── intradayEmail.ts   # Intraday alert email template + Resend delivery
 ├── weeklyEmail.ts     # Weekly rebalancing email template + Resend delivery
-└── telegram.ts        # Telegram Bot API delivery (daily + weekly formatters)
+└── telegram.ts        # Telegram Bot API delivery (daily + intraday + weekly formatters)
 ```
 
-Each module is independent — they communicate through typed interfaces (`QuoteData`, `AllocationItem`, `AllocationReport`, `AIBuyRecommendation`).
+Each module is independent — they communicate through typed interfaces (`QuoteData`, `AllocationItem`, `AllocationReport`, `AIBuyRecommendation`, `IntradayAlert`).
 
 ---
 
@@ -104,13 +107,18 @@ If Gemini is unavailable, the system falls back to gap-based ranking (largest al
 
 ---
 
-## Two Modes
+## Three Modes
 
-| | Daily | Weekly |
-|---|---|---|
-| Prices & fundamentals | Yes | Yes |
-| News headlines | Yes | No |
-| AI recommendations | Yes | No |
-| Allocation analysis | Yes | Yes |
-| Email template | Full brief | Rebalancing table |
-| Telegram format | AI recs + news | BUY/TRIM actions |
+| | Daily | Intraday | Weekly |
+|---|---|---|---|
+| Prices & fundamentals | Yes | Yes | Yes |
+| News headlines | Yes | No | No |
+| AI recommendations | Yes | Yes | No |
+| Allocation analysis | Yes | Yes | Yes |
+| Baseline comparison | Saves baseline | Compares vs morning | No |
+| Email template | Full brief | Alert (triggered only) | Rebalancing table |
+| Telegram format | AI recs + news | Alert (triggered only) | BUY/TRIM actions |
+
+![Daily Brief](screenshots/morning-debrief.png){: style="max-width: 260px; display: inline-block;" }
+![Intraday Alert](screenshots/intraday-alert.html.png){: style="max-width: 260px; display: inline-block;" }
+![Weekly Rebalance](screenshots/weekly-rebalance.png){: style="max-width: 260px; display: inline-block;" }
