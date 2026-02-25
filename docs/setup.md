@@ -266,7 +266,7 @@ Cron is always UTC. Common timezone conversions:
 Resend free tier restriction. Set `RECIPIENT_EMAIL` to your Resend account email, or verify a custom domain on Resend.
 
 ### "GEMINI_API_KEY quota: limit 0"
-New Gemini API keys take a few minutes to activate. Wait 5-10 minutes and try again. The brief will fall back to gap-based recommendations in the meantime.
+New keys need time to activate. Wait 5–10 minutes, then try enabling the [Generative Language API](https://console.cloud.google.com/apis/library) in Google Cloud Console, and adding billing details in [AI Studio](https://aistudio.google.com) (free tier is fine). See [Troubleshooting](troubleshooting) for full steps.
 
 ### "fetch failed — internal-error" for a ticker
 Yahoo Finance occasionally has issues with specific tickers. The ticker is skipped and everything else continues normally.

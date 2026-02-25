@@ -20,9 +20,15 @@ Common issues and how to fix them.
 
 ## "GEMINI_API_KEY quota: limit 0"
 
-**Cause:** New Gemini API keys take a few minutes to activate.
+**Cause:** New Gemini API keys take a few minutes to activate. Some keys may not work at all until billing and the API are enabled.
 
-**Fix:** Wait 5–10 minutes and try again. In the meantime, Richfolio automatically falls back to gap-based recommendations — the brief will still be delivered, just without AI analysis.
+**Fix:** Try these steps in order:
+
+1. **Wait 5–10 minutes** — new keys sometimes just need time to activate
+2. **Enable the Generative Language API** — go to [Google Cloud Console](https://console.cloud.google.com/apis/library) → search "Generative Language API" → click **Enable** for the project linked to your API key
+3. **Add billing details** — go to [Google AI Studio](https://aistudio.google.com) → Settings → Billing and add your billing info. You can still select the **free tier** — adding billing just activates your key, you won't be charged unless you exceed the free limits
+
+In the meantime, Richfolio automatically falls back to gap-based recommendations — the brief will still be delivered, just without AI analysis.
 
 ---
 
