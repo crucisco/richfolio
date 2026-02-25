@@ -10,7 +10,7 @@ Richfolio is a zero-maintenance portfolio monitoring system that sends daily ema
 
 - **Runtime**: Node.js + TypeScript (strict mode, ESNext, ESM)
 - **Execution**: `tsx` (TypeScript execute, no build step)
-- **Data**: `yahoo-finance2` v3 (instance-based API) for prices, fundamentals, earnings history, ETF holdings
+- **Data**: `yahoo-finance2` v3 (instance-based API) for prices, fundamentals, earnings history, ETF holdings, chart data (technicals)
 - **News**: NewsAPI.org free tier (100 req/day)
 - **AI**: Google Gemini 2.5 Flash via `@google/genai` (250 req/day free)
 - **Email**: Resend.com free tier (3,000 emails/month)
@@ -36,9 +36,10 @@ Single-pipeline flow, no API server. Three modes: daily (default), intraday (`--
 src/index.ts (entry point — parses --weekly/--intraday flags, wires modules)
   → src/config.ts          # Loads config.json + .env, exports typed portfolio data + intradayConfig
   → src/fetchPrices.ts     # Yahoo Finance: price, P/E, avgPE, 52w, beta, dividends, ETF top holdings
+  → src/fetchTechnicals.ts # Yahoo Finance chart: SMA50, SMA200, RSI(14), momentum, support levels
   → src/fetchNews.ts       # NewsAPI: top 3 headlines per ticker (daily only)
   → src/analyze.ts         # Allocation gaps, P/E signals, ETF overlap discounts, portfolio beta, dividend estimate
-  → src/aiAnalysis.ts      # Gemini AI: buy recommendations with confidence scores (daily + intraday)
+  → src/aiAnalysis.ts      # Gemini AI: buy recommendations + confidence scores + limit order prices (daily + intraday)
   → src/state.ts           # Save/load morning baseline for intraday comparison
   → src/intradayCompare.ts # Compare current AI recs vs morning baseline, detect strengthening
   → src/email.ts           # Daily dark-themed HTML email + Resend
@@ -80,3 +81,6 @@ In GitHub Actions, `config.json` is written from the `CONFIG_JSON` secret at run
 - **Telegram char limit**: 4,096 chars per message — news section is truncated if needed
 - **GitHub Actions timezone**: Cron is always UTC. 10pm UTC = 8am AEST
 - **Gemini quota**: New API keys may take minutes to activate. Graceful fallback to gap-based recommendations
+- **Technical data**: Fetched via `yahooFinance.chart()` with 365-day lookback. Tickers with <50 data points are skipped. SMA200 is null if <200 data points
+- **Technicals display**: Only shown for STRONG BUY tickers in email/Telegram to avoid info overload. AI receives technicals for all tickers
+- **Limit order prices**: Suggested by AI based on nearest support (50MA, 30d low, round numbers). Shown for STRONG BUY in daily, intraday, and Telegram
