@@ -12,7 +12,7 @@ Get Richfolio running locally in under 5 minutes.
 
 ## Prerequisites
 
-- **Node.js 20+** — [Download](https://nodejs.org/)
+- **Node.js 22+** — [Download](https://nodejs.org/)
 - **npm** — comes with Node.js
 - A **GitHub account** — for automated scheduling via Actions (optional for local use)
 
@@ -53,6 +53,9 @@ Add your API keys. At minimum you need `RESEND_API_KEY` and `RECIPIENT_EMAIL`. S
 ```bash
 # Daily brief — prices + news + AI analysis + email + Telegram
 npm run dev
+
+# Intraday alert check — compares vs morning baseline
+npm run intraday
 
 # Weekly rebalancing report — prices + allocation drift + email + Telegram
 npm run weekly

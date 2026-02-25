@@ -2,7 +2,7 @@
 
 [![Morning Brief](https://github.com/furic/richfolio/actions/workflows/morning-brief.yml/badge.svg)](https://github.com/furic/richfolio/actions/workflows/morning-brief.yml)
 [![Docs](https://github.com/furic/richfolio/actions/workflows/docs.yml/badge.svg)](https://furic.github.io/richfolio/)
-[![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-22%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
 [![Cost](https://img.shields.io/badge/Cost-%240%2Fmonth-2ecc71)](https://furic.github.io/richfolio/features)

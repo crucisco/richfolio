@@ -6,7 +6,7 @@ Complete instructions for setting up Richfolio locally and deploying to GitHub A
 
 ## 1. Prerequisites
 
-- **Node.js 20+** — [Download](https://nodejs.org/)
+- **Node.js 22+** — [Download](https://nodejs.org/)
 - **npm** — comes with Node.js
 - A **GitHub account** (for Actions deployment)
 
