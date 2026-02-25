@@ -2,6 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import type { AllocationReport } from "./analyze.js";
 import type { QuoteData } from "./fetchPrices.js";
 import type { NewsItem } from "./fetchNews.js";
+import type { TechnicalData } from "./fetchTechnicals.js";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
@@ -12,6 +13,8 @@ export interface AIBuyRecommendation {
   confidence: number;
   reason: string;
   suggestedBuyValue: number;
+  suggestedLimitPrice?: number;
+  limitPriceReason?: string;
 }
 
 // ── Schema for structured Gemini output ─────────────────────────────
@@ -43,6 +46,16 @@ const responseSchema = {
         description:
           "Suggested USD amount to invest in this ticker. 0 if HOLD or WAIT",
       },
+      suggestedLimitPrice: {
+        type: Type.NUMBER,
+        description:
+          "For STRONG BUY and BUY: a limit order price below current market based on nearby support (moving average, recent low, round number). 0 if HOLD or WAIT.",
+      },
+      limitPriceReason: {
+        type: Type.STRING,
+        description:
+          "1 sentence explaining the limit price level, e.g. 'Near 50-day MA support at $218'",
+      },
     },
     propertyOrdering: [
       "ticker",
@@ -50,6 +63,8 @@ const responseSchema = {
       "confidence",
       "reason",
       "suggestedBuyValue",
+      "suggestedLimitPrice",
+      "limitPriceReason",
     ],
   },
 };
@@ -58,15 +73,17 @@ const responseSchema = {
 function buildPrompt(
   report: AllocationReport,
   priceData: Record<string, QuoteData>,
-  news: Record<string, NewsItem[]>
+  news: Record<string, NewsItem[]>,
+  technicals: Record<string, TechnicalData> = {}
 ): string {
   const tickerSummaries = report.items.map((item) => {
     const quote = priceData[item.ticker];
+    const tech = technicals[item.ticker];
     const headlines = (news[item.ticker] || [])
       .map((n) => `"${n.title}" (${n.source})`)
       .join("; ");
 
-    return [
+    const lines = [
       `${item.ticker}:`,
       `  Price: $${item.price.toFixed(2)}`,
       `  Trailing P/E: ${quote?.trailingPE?.toFixed(1) ?? "N/A"}`,
@@ -78,8 +95,22 @@ function buildPrompt(
       `  Current allocation: ${item.currentPct.toFixed(1)}% (target: ${item.targetPct.toFixed(1)}%, gap: ${item.gapPct > 0 ? "+" : ""}${item.gapPct.toFixed(1)}%)`,
       item.overlapDiscount > 0 ? `  ETF overlap discount: -$${item.overlapDiscount.toFixed(0)} (${item.overlapPct.toFixed(0)}% of gap covered by held stocks)` : null,
       `  P/E signal: ${item.peSignal ?? "none"}`,
-      headlines ? `  Recent news: ${headlines}` : `  Recent news: none`,
-    ].filter(Boolean).join("\n");
+    ];
+
+    if (tech) {
+      lines.push(`  Technical indicators:`);
+      lines.push(`    50-day MA: $${tech.sma50} (price ${tech.priceVsSma50 > 0 ? "+" : ""}${tech.priceVsSma50}% vs MA)`);
+      if (tech.sma200 != null) {
+        lines.push(`    200-day MA: $${tech.sma200} (price ${tech.priceVsSma200! > 0 ? "+" : ""}${tech.priceVsSma200}% vs MA)`);
+      }
+      lines.push(`    RSI(14): ${tech.rsi14} (>70 overbought, <30 oversold)`);
+      lines.push(`    Momentum: ${tech.momentumSignal}${tech.goldenCross ? " (golden cross)" : ""}${tech.deathCross ? " (death cross)" : ""}`);
+      lines.push(`    7-day low: $${tech.recentLow7d}, 30-day low: $${tech.recentLow30d}`);
+    }
+
+    lines.push(headlines ? `  Recent news: ${headlines}` : `  Recent news: none`);
+
+    return lines.filter(Boolean).join("\n");
   });
 
   return `You are a portfolio analyst. Analyze these tickers and recommend which to buy.
@@ -103,14 +134,17 @@ INSTRUCTIONS:
    - suggestedBuyValue: realistic USD amount to invest (based on gap and portfolio size). $0 for HOLD/WAIT.
 5. Return only tickers with target > 0%. Sort by confidence descending (best buys first).
 6. Be concise and specific in reasons. Reference actual numbers (P/E, 52w%, gap).
-7. For ETFs with an "ETF overlap discount", the suggested buy has already been reduced. Mention the overlap when it significantly affects the recommendation.`;
+7. For ETFs with an "ETF overlap discount", the suggested buy has already been reduced. Mention the overlap when it significantly affects the recommendation.
+8. For STRONG BUY and BUY tickers, suggest a limit order price slightly below current market. Base it on the nearest support level: 50-day MA, recent 7d/30d low, or a round number. Set suggestedLimitPrice (the price) and limitPriceReason (1 sentence explaining the level). Set both to 0/"" for HOLD/WAIT.
+9. Use technical indicators (MA, RSI, momentum) to refine confidence. A bullish momentum signal with oversold RSI strengthens a buy case. A bearish signal or overbought RSI weakens it.`;
 }
 
 // ── Call Gemini ─────────────────────────────────────────────────────
 export async function aiAnalyze(
   report: AllocationReport,
   priceData: Record<string, QuoteData>,
-  news: Record<string, NewsItem[]>
+  news: Record<string, NewsItem[]>,
+  technicals: Record<string, TechnicalData> = {}
 ): Promise<AIBuyRecommendation[]> {
   if (!GEMINI_API_KEY) {
     console.warn("GEMINI_API_KEY not set — skipping AI analysis\n");
@@ -121,7 +155,7 @@ export async function aiAnalyze(
 
   try {
     const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-    const prompt = buildPrompt(report, priceData, news);
+    const prompt = buildPrompt(report, priceData, news, technicals);
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
@@ -140,7 +174,8 @@ export async function aiAnalyze(
     for (const rec of recommendations) {
       if (rec.action === "STRONG BUY" || rec.action === "BUY") {
         console.log(
-          `  ${rec.action} ${rec.ticker} (${rec.confidence}%) — ${rec.reason}`
+          `  ${rec.action} ${rec.ticker} (${rec.confidence}%) — ${rec.reason}` +
+            (rec.suggestedLimitPrice ? ` [limit: $${rec.suggestedLimitPrice}]` : "")
         );
       }
     }

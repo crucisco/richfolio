@@ -3,6 +3,7 @@ import { recipientEmail } from "./config.js";
 import type { AllocationItem, AllocationReport } from "./analyze.js";
 import type { AIBuyRecommendation } from "./aiAnalysis.js";
 import type { NewsItem } from "./fetchNews.js";
+import type { TechnicalData } from "./fetchTechnicals.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -68,8 +69,40 @@ function confidenceBar(pct: number): string {
     `</div> <span style="font-size:11px;color:${S.muted};">${pct}%</span>`;
 }
 
+// ── Technical Insight (STRONG BUY only) ─────────────────────────────
+function buildTechnicalInsight(rec: AIBuyRecommendation, tech: TechnicalData | undefined): string {
+  if (rec.action !== "STRONG BUY" || !tech) return "";
+
+  const momentumColor = tech.momentumSignal === "bullish" ? S.green : tech.momentumSignal === "bearish" ? S.red : S.muted;
+  const rsiColor = tech.rsi14 < 30 ? S.green : tech.rsi14 > 70 ? S.red : S.muted;
+
+  const lines = [
+    `<span style="color:${momentumColor};">${tech.momentumSignal}</span>`,
+    `RSI <span style="color:${rsiColor};">${tech.rsi14}</span>`,
+    `50MA $${tech.sma50} (${tech.priceVsSma50 > 0 ? "+" : ""}${tech.priceVsSma50}%)`,
+  ];
+  if (tech.sma200 != null) {
+    lines.push(`200MA $${tech.sma200}`);
+  }
+  if (tech.goldenCross) lines.push(`<span style="color:${S.green};">golden cross</span>`);
+  if (tech.deathCross) lines.push(`<span style="color:${S.red};">death cross</span>`);
+
+  let html = `<div style="font-size:11px;color:${S.muted};margin-top:6px;border-top:1px solid ${S.border};padding-top:6px;">`;
+  html += `<span style="color:${S.blue};">Momentum:</span> ${lines.join(" · ")}`;
+
+  if (rec.suggestedLimitPrice && rec.suggestedLimitPrice > 0) {
+    html += `<br><span style="color:${S.green};">Limit order:</span> $${rec.suggestedLimitPrice.toFixed(2)}`;
+    if (rec.limitPriceReason) {
+      html += ` — ${rec.limitPriceReason}`;
+    }
+  }
+
+  html += `</div>`;
+  return html;
+}
+
 // ── AI Recommendations Section ──────────────────────────────────────
-function buildAISection(aiRecs: AIBuyRecommendation[]): string {
+function buildAISection(aiRecs: AIBuyRecommendation[], technicals: Record<string, TechnicalData> = {}): string {
   const actionable = aiRecs.filter(
     (r) => r.action === "STRONG BUY" || r.action === "BUY"
   );
@@ -92,6 +125,7 @@ function buildAISection(aiRecs: AIBuyRecommendation[]): string {
       ${rec.suggestedBuyValue > 0 ? `<span style="float:right;font-weight:bold;color:#fff;">${fmt$(rec.suggestedBuyValue)}</span>` : ""}
     </div>
     <div style="font-size:12px;color:${S.text};margin-top:4px;">${rec.reason}</div>
+    ${buildTechnicalInsight(rec, technicals[rec.ticker])}
   </div>`).join("") : `<p style="color:${S.muted};font-size:13px;">No strong buy opportunities identified today.</p>`}
   ${others.length > 0 ? `
   <div style="margin-top:12px;">
@@ -143,7 +177,8 @@ function buildFallbackBuysSection(report: AllocationReport): string {
 export function buildEmailHtml(
   report: AllocationReport,
   news: Record<string, NewsItem[]>,
-  aiRecs: AIBuyRecommendation[] = []
+  aiRecs: AIBuyRecommendation[] = [],
+  technicals: Record<string, TechnicalData> = {}
 ): string {
   const date = new Date().toLocaleDateString("en-AU", {
     weekday: "long",
@@ -156,7 +191,7 @@ export function buildEmailHtml(
 
   // Use AI section if available, otherwise fallback to gap-based
   const buysSection = aiRecs.length > 0
-    ? buildAISection(aiRecs)
+    ? buildAISection(aiRecs, technicals)
     : buildFallbackBuysSection(report);
 
   return `<!DOCTYPE html>
@@ -258,9 +293,10 @@ ${tickersWithNews.length > 0 ? `
 export async function sendBrief(
   report: AllocationReport,
   news: Record<string, NewsItem[]>,
-  aiRecs: AIBuyRecommendation[] = []
+  aiRecs: AIBuyRecommendation[] = [],
+  technicals: Record<string, TechnicalData> = {}
 ): Promise<void> {
-  const html = buildEmailHtml(report, news, aiRecs);
+  const html = buildEmailHtml(report, news, aiRecs, technicals);
 
   const { error } = await resend.emails.send({
     from: "Richfolio <onboarding@resend.dev>",

@@ -91,6 +91,7 @@ export function buildIntradayEmailHtml(alerts: IntradayAlert[]): string {
     ${priceDeltaHtml(a.priceDelta) ? `<div style="margin-bottom:6px;">${priceDeltaHtml(a.priceDelta)}</div>` : ""}
     <div style="font-size:12px;color:${S.text};margin-bottom:4px;">${a.reason}</div>
     ${a.suggestedBuyValue > 0 ? `<div style="font-size:13px;font-weight:bold;color:#fff;">Suggested: ${fmt$(a.suggestedBuyValue)}</div>` : ""}
+    ${a.currentAction === "STRONG BUY" && a.suggestedLimitPrice && a.suggestedLimitPrice > 0 ? `<div style="font-size:12px;color:${S.green};margin-top:4px;">Limit order: $${a.suggestedLimitPrice.toFixed(2)}${a.limitPriceReason ? ` — ${a.limitPriceReason}` : ""}</div>` : ""}
   </div>`
     )
     .join("");

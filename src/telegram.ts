@@ -1,6 +1,7 @@
 import type { AllocationReport } from "./analyze.js";
 import type { AIBuyRecommendation } from "./aiAnalysis.js";
 import type { NewsItem } from "./fetchNews.js";
+import type { TechnicalData } from "./fetchTechnicals.js";
 import type { IntradayAlert } from "./intradayCompare.js";
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -27,7 +28,8 @@ function actionEmoji(action: string): string {
 function buildMessage(
   report: AllocationReport,
   news: Record<string, NewsItem[]>,
-  aiRecs: AIBuyRecommendation[]
+  aiRecs: AIBuyRecommendation[],
+  technicals: Record<string, TechnicalData> = {}
 ): string {
   const date = new Date().toLocaleDateString("en-AU", {
     weekday: "long",
@@ -59,6 +61,21 @@ function buildMessage(
           (rec.suggestedBuyValue > 0 ? ` — ${fmt$(rec.suggestedBuyValue)}` : "")
         );
         lines.push(`   <i>${rec.reason}</i>`);
+        // Technical insight for STRONG BUY only
+        if (rec.action === "STRONG BUY") {
+          const tech = technicals[rec.ticker];
+          if (tech) {
+            lines.push(
+              `   📈 ${tech.momentumSignal} · RSI ${tech.rsi14} · 50MA $${tech.sma50} (${tech.priceVsSma50 > 0 ? "+" : ""}${tech.priceVsSma50}%)`
+            );
+          }
+          if (rec.suggestedLimitPrice && rec.suggestedLimitPrice > 0) {
+            lines.push(
+              `   💡 Limit: $${rec.suggestedLimitPrice.toFixed(2)}` +
+              (rec.limitPriceReason ? ` — ${rec.limitPriceReason}` : "")
+            );
+          }
+        }
       }
 
       const holds = aiRecs.filter(r => r.action === "HOLD" || r.action === "WAIT");
@@ -118,14 +135,15 @@ function escapeHtml(text: string): string {
 export async function sendTelegramBrief(
   report: AllocationReport,
   news: Record<string, NewsItem[]>,
-  aiRecs: AIBuyRecommendation[] = []
+  aiRecs: AIBuyRecommendation[] = [],
+  technicals: Record<string, TechnicalData> = {}
 ): Promise<void> {
   if (!BOT_TOKEN || !CHAT_ID) {
     console.log("TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set — skipping Telegram\n");
     return;
   }
 
-  const message = buildMessage(report, news, aiRecs);
+  const message = buildMessage(report, news, aiRecs, technicals);
 
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
   const response = await fetch(url, {

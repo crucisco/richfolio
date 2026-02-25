@@ -12,6 +12,8 @@ export interface IntradayAlert {
   confidenceDelta: number;
   reason: string;
   suggestedBuyValue: number;
+  suggestedLimitPrice?: number;
+  limitPriceReason?: string;
   triggerType: "confidence_increase" | "action_upgrade" | "new_signal";
   currentPrice: number;
   morningPrice: number;
@@ -87,6 +89,8 @@ export function compareWithBaseline(
         confidenceDelta,
         reason: rec.reason,
         suggestedBuyValue: rec.suggestedBuyValue,
+        suggestedLimitPrice: rec.suggestedLimitPrice,
+        limitPriceReason: rec.limitPriceReason,
         triggerType,
         currentPrice,
         morningPrice,

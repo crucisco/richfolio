@@ -1,5 +1,6 @@
 import { allUniqueTickers, intradayConfig } from "./config.js";
 import { fetchAllPrices } from "./fetchPrices.js";
+import { fetchTechnicals } from "./fetchTechnicals.js";
 import { fetchNews } from "./fetchNews.js";
 import type { NewsItem } from "./fetchNews.js";
 import { runAnalysis } from "./analyze.js";
@@ -58,9 +59,10 @@ try {
       process.exit(0);
     }
 
-    // Run AI analysis WITHOUT news (saves NewsAPI quota)
+    // Run AI analysis WITHOUT news (saves NewsAPI quota), WITH technicals
     const emptyNews: Record<string, NewsItem[]> = {};
-    const aiRecs = await aiAnalyze(report, prices, emptyNews);
+    const technicals = await fetchTechnicals(tickers);
+    const aiRecs = await aiAnalyze(report, prices, emptyNews, technicals);
 
     if (aiRecs.length === 0) {
       console.log("AI analysis returned no results — skipping comparison");
@@ -93,9 +95,12 @@ try {
       }
     }
   } else {
-    // Daily mode: full brief with news + AI
-    const news = await fetchNews(tickers);
-    const aiRecs = await aiAnalyze(report, prices, news);
+    // Daily mode: full brief with news + AI + technicals
+    const [news, technicals] = await Promise.all([
+      fetchNews(tickers),
+      fetchTechnicals(tickers),
+    ]);
+    const aiRecs = await aiAnalyze(report, prices, news, technicals);
 
     // Save morning baseline for intraday comparison
     if (aiRecs.length > 0) {
@@ -111,9 +116,9 @@ try {
       });
     }
 
-    await sendBrief(report, news, aiRecs);
+    await sendBrief(report, news, aiRecs, technicals);
     try {
-      await sendTelegramBrief(report, news, aiRecs);
+      await sendTelegramBrief(report, news, aiRecs, technicals);
     } catch (err) {
       console.error("Telegram send failed:", (err as Error).message);
     }
