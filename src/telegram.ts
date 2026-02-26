@@ -58,6 +58,7 @@ function buildMessage(
       for (const rec of actionable) {
         lines.push(
           `${actionEmoji(rec.action)} <b>${rec.action} ${rec.ticker}</b> (${rec.confidence}%)` +
+          (rec.valueRating ? ` [${rec.valueRating}]` : "") +
           (rec.suggestedBuyValue > 0 ? ` — ${fmt$(rec.suggestedBuyValue)}` : "")
         );
         lines.push(`   <i>${rec.reason}</i>`);
@@ -75,6 +76,9 @@ function buildMessage(
               (rec.limitPriceReason ? ` — ${rec.limitPriceReason}` : "")
             );
           }
+          if (rec.bottomSignal && rec.bottomSignal !== "") {
+            lines.push(`   🔻 Bottom: ${rec.bottomSignal}`);
+          }
         }
       }
 
@@ -82,7 +86,7 @@ function buildMessage(
       if (holds.length > 0) {
         lines.push("");
         lines.push(
-          `⏸ Hold/Wait: ${holds.map(r => r.ticker).join(", ")}`
+          `⏸ Hold/Wait: ${holds.map(r => r.ticker + (r.valueRating ? `[${r.valueRating}]` : "")).join(", ")}`
         );
       }
     } else {

@@ -69,32 +69,53 @@ function confidenceBar(pct: number): string {
     `</div> <span style="font-size:11px;color:${S.muted};">${pct}%</span>`;
 }
 
-// ── Technical Insight (STRONG BUY only) ─────────────────────────────
+// ── Value rating color ───────────────────────────────────────────────
+const ratingColors: Record<string, string> = { A: "#2ecc71", B: "#3498db", C: "#f39c12", D: "#e74c3c" };
+
+function valueRatingBadge(rating: string | undefined): string {
+  if (!rating || rating === "") return "";
+  const color = ratingColors[rating] || S.muted;
+  return `<span style="background:${color}22;color:${color};padding:1px 6px;border-radius:3px;font-size:10px;font-weight:bold;margin-left:6px;">Value ${rating}</span>`;
+}
+
+// ── Technical Insight (STRONG BUY + BUY with extras) ────────────────
 function buildTechnicalInsight(rec: AIBuyRecommendation, tech: TechnicalData | undefined): string {
-  if (rec.action !== "STRONG BUY" || !tech) return "";
-
-  const momentumColor = tech.momentumSignal === "bullish" ? S.green : tech.momentumSignal === "bearish" ? S.red : S.muted;
-  const rsiColor = tech.rsi14 < 30 ? S.green : tech.rsi14 > 70 ? S.red : S.muted;
-
-  const lines = [
-    `<span style="color:${momentumColor};">${tech.momentumSignal}</span>`,
-    `RSI <span style="color:${rsiColor};">${tech.rsi14}</span>`,
-    `50MA $${tech.sma50} (${tech.priceVsSma50 > 0 ? "+" : ""}${tech.priceVsSma50}%)`,
-  ];
-  if (tech.sma200 != null) {
-    lines.push(`200MA $${tech.sma200}`);
-  }
-  if (tech.goldenCross) lines.push(`<span style="color:${S.green};">golden cross</span>`);
-  if (tech.deathCross) lines.push(`<span style="color:${S.red};">death cross</span>`);
+  const hasExtras = (rec.valueRating && rec.valueRating !== "") || (rec.bottomSignal && rec.bottomSignal !== "");
+  if (rec.action !== "STRONG BUY" && !hasExtras) return "";
+  if (!tech && !hasExtras) return "";
 
   let html = `<div style="font-size:11px;color:${S.muted};margin-top:6px;border-top:1px solid ${S.border};padding-top:6px;">`;
-  html += `<span style="color:${S.blue};">Momentum:</span> ${lines.join(" · ")}`;
 
-  if (rec.suggestedLimitPrice && rec.suggestedLimitPrice > 0) {
+  // Technical momentum line (STRONG BUY only)
+  if (rec.action === "STRONG BUY" && tech) {
+    const momentumColor = tech.momentumSignal === "bullish" ? S.green : tech.momentumSignal === "bearish" ? S.red : S.muted;
+    const rsiColor = tech.rsi14 < 30 ? S.green : tech.rsi14 > 70 ? S.red : S.muted;
+
+    const lines = [
+      `<span style="color:${momentumColor};">${tech.momentumSignal}</span>`,
+      `RSI <span style="color:${rsiColor};">${tech.rsi14}</span>`,
+      `50MA $${tech.sma50} (${tech.priceVsSma50 > 0 ? "+" : ""}${tech.priceVsSma50}%)`,
+    ];
+    if (tech.sma200 != null) {
+      lines.push(`200MA $${tech.sma200}`);
+    }
+    if (tech.goldenCross) lines.push(`<span style="color:${S.green};">golden cross</span>`);
+    if (tech.deathCross) lines.push(`<span style="color:${S.red};">death cross</span>`);
+
+    html += `<span style="color:${S.blue};">Momentum:</span> ${lines.join(" · ")}`;
+  }
+
+  // Limit order (STRONG BUY only)
+  if (rec.action === "STRONG BUY" && rec.suggestedLimitPrice && rec.suggestedLimitPrice > 0) {
     html += `<br><span style="color:${S.green};">Limit order:</span> $${rec.suggestedLimitPrice.toFixed(2)}`;
     if (rec.limitPriceReason) {
       html += ` — ${rec.limitPriceReason}`;
     }
+  }
+
+  // Bottom signal (crypto STRONG BUY/BUY)
+  if (rec.bottomSignal && rec.bottomSignal !== "") {
+    html += `<br><span style="color:${S.yellow};">Bottom signal:</span> ${rec.bottomSignal}`;
   }
 
   html += `</div>`;
@@ -113,14 +134,14 @@ function buildAISection(aiRecs: AIBuyRecommendation[], technicals: Record<string
   return `
 <tr><td style="padding:20px 24px 8px;background:${S.cardBg};">
   <h2 style="margin:0;font-size:16px;color:${S.blue};">AI Buy Recommendations</h2>
-  <p style="margin:4px 0 0;font-size:11px;color:${S.muted};">Powered by Gemini — considers valuation, allocation gap, news sentiment, and risk.</p>
+  <p style="margin:4px 0 0;font-size:11px;color:${S.muted};">Powered by Gemini — considers fundamentals, valuation, allocation gap, technicals, and news sentiment.</p>
 </td></tr>
 <tr><td style="padding:0 24px 16px;background:${S.cardBg};">
   ${actionable.length > 0 ? actionable.map((rec) => `
   <div style="padding:10px 0;border-bottom:1px solid ${S.border};">
     <div style="margin-bottom:4px;">
       <span style="font-weight:bold;font-size:14px;color:#fff;">${rec.ticker}</span>
-      &nbsp;${actionBadge(rec.action)}
+      &nbsp;${actionBadge(rec.action)}${valueRatingBadge(rec.valueRating)}
       &nbsp;${confidenceBar(rec.confidence)}
       ${rec.suggestedBuyValue > 0 ? `<span style="float:right;font-weight:bold;color:#fff;">${fmt$(rec.suggestedBuyValue)}</span>` : ""}
     </div>
@@ -133,7 +154,7 @@ function buildAISection(aiRecs: AIBuyRecommendation[], technicals: Record<string
     ${others.map((rec) => `
     <div style="padding:4px 0;font-size:12px;">
       <span style="font-weight:bold;">${rec.ticker}</span>
-      &nbsp;${actionBadge(rec.action)}
+      &nbsp;${actionBadge(rec.action)}${valueRatingBadge(rec.valueRating)}
       <span style="color:${S.muted};margin-left:8px;">${rec.reason}</span>
     </div>`).join("")}
   </div>` : ""}

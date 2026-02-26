@@ -18,6 +18,7 @@ export interface TechnicalData {
   momentumSignal: "bullish" | "bearish" | "neutral";
   recentLow7d: number;
   recentLow30d: number;
+  volumeChange7d: number | null;
 }
 
 // ── Computation helpers ─────────────────────────────────────────────
@@ -105,6 +106,22 @@ async function fetchOne(ticker: string): Promise<TechnicalData | null> {
     const recentLow7d = Math.min(...last7);
     const recentLow30d = Math.min(...last30);
 
+    // Volume change: avg 7d vs prior 30d (for crypto bottom-fishing model)
+    const volumes = quotes
+      .map((q) => q.volume)
+      .filter((v): v is number => v != null && v > 0);
+
+    let volumeChange7d: number | null = null;
+    if (volumes.length >= 37) {
+      const recentVol = volumes.slice(-7);
+      const priorVol = volumes.slice(-37, -7);
+      const avgRecent = recentVol.reduce((s, v) => s + v, 0) / recentVol.length;
+      const avgPrior = priorVol.reduce((s, v) => s + v, 0) / priorVol.length;
+      if (avgPrior > 0) {
+        volumeChange7d = Math.round(((avgRecent - avgPrior) / avgPrior) * 1000) / 10;
+      }
+    }
+
     return {
       ticker,
       sma50: Math.round(sma50 * 100) / 100,
@@ -117,6 +134,7 @@ async function fetchOne(ticker: string): Promise<TechnicalData | null> {
       momentumSignal,
       recentLow7d: Math.round(recentLow7d * 100) / 100,
       recentLow30d: Math.round(recentLow30d * 100) / 100,
+      volumeChange7d,
     };
   } catch (err) {
     console.error(`  ✗ ${ticker}: chart fetch failed —`, (err as Error).message);
@@ -142,7 +160,8 @@ export async function fetchTechnicals(
           ` RSI=${data.rsi14}` +
           ` ${data.momentumSignal}` +
           (data.goldenCross ? " ✨golden" : "") +
-          (data.deathCross ? " ☠️death" : "")
+          (data.deathCross ? " ☠️death" : "") +
+          (data.volumeChange7d != null ? ` vol${data.volumeChange7d > 0 ? "+" : ""}${data.volumeChange7d}%` : "")
       );
     }
   }

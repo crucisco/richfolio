@@ -14,6 +14,8 @@ export interface IntradayAlert {
   suggestedBuyValue: number;
   suggestedLimitPrice?: number;
   limitPriceReason?: string;
+  valueRating?: string;
+  bottomSignal?: string;
   triggerType: "confidence_increase" | "action_upgrade" | "new_signal";
   currentPrice: number;
   morningPrice: number;
@@ -91,6 +93,8 @@ export function compareWithBaseline(
         suggestedBuyValue: rec.suggestedBuyValue,
         suggestedLimitPrice: rec.suggestedLimitPrice,
         limitPriceReason: rec.limitPriceReason,
+        valueRating: rec.valueRating,
+        bottomSignal: rec.bottomSignal,
         triggerType,
         currentPrice,
         morningPrice,

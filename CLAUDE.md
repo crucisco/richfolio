@@ -35,11 +35,11 @@ Single-pipeline flow, no API server. Three modes: daily (default), intraday (`--
 ```
 src/index.ts (entry point — parses --weekly/--intraday flags, wires modules)
   → src/config.ts          # Loads config.json + .env, exports typed portfolio data + intradayConfig
-  → src/fetchPrices.ts     # Yahoo Finance: price, P/E, avgPE, 52w, beta, dividends, ETF top holdings
-  → src/fetchTechnicals.ts # Yahoo Finance chart: SMA50, SMA200, RSI(14), momentum, support levels
+  → src/fetchPrices.ts     # Yahoo Finance: price, P/E, avgPE, 52w, beta, dividends, ETF top holdings, fundamentals (ROE, debt, FCF)
+  → src/fetchTechnicals.ts # Yahoo Finance chart: SMA50, SMA200, RSI(14), momentum, support levels, volume change
   → src/fetchNews.ts       # NewsAPI: top 3 headlines per ticker (daily only)
   → src/analyze.ts         # Allocation gaps, P/E signals, ETF overlap discounts, portfolio beta, dividend estimate
-  → src/aiAnalysis.ts      # Gemini AI: buy recommendations + confidence scores + limit order prices (daily + intraday)
+  → src/aiAnalysis.ts      # Gemini AI: buy recs + confidence + limit prices + value ratings + crypto bottom signals
   → src/state.ts           # Save/load morning baseline for intraday comparison
   → src/intradayCompare.ts # Compare current AI recs vs morning baseline, detect strengthening
   → src/email.ts           # Daily dark-themed HTML email + Resend
@@ -84,3 +84,6 @@ In GitHub Actions, `config.json` is written from the `CONFIG_JSON` secret at run
 - **Technical data**: Fetched via `yahooFinance.chart()` with 365-day lookback. Tickers with <50 data points are skipped. SMA200 is null if <200 data points
 - **Technicals display**: Only shown for STRONG BUY tickers in email/Telegram to avoid info overload. AI receives technicals for all tickers
 - **Limit order prices**: Suggested by AI based on nearest support (50MA, 30d low, round numbers). Shown for STRONG BUY in daily, intraday, and Telegram
+- **Value investing framework**: AI rates stocks A-D based on ROE, debt/equity, FCF, earnings growth, analyst target. Data from Yahoo `financialData` module (same API call). ETFs and crypto get no rating
+- **Crypto bottom-fishing model**: AI checks RSI<30, volume contraction, price below 200MA, death cross for BTC/ETH. 2+ indicators triggers a bottom signal. Volume change computed from existing chart data
+- **Fundamentals data**: `financialData` module added to existing `quoteSummary` call — zero extra API overhead. Returns null for ETFs and crypto

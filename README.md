@@ -20,6 +20,8 @@ A zero-maintenance portfolio monitoring system. Set your target allocations once
 ## Features
 
 - **AI Buy Recommendations** — Gemini-powered analysis considering valuation, allocation gap, news sentiment, technicals, and risk (with gap-based fallback)
+- **Value Investing Framework** — AI rates individual stocks A–D based on ROE, debt/equity, FCF, earnings growth, and analyst targets (data from Yahoo Finance, zero extra API calls)
+- **Crypto Bottom-Fishing Model** — AI detects accumulation zones for BTC/ETH using RSI, volume contraction, 200MA position, and death cross signals
 - **Technical Momentum Signals** — SMA50, SMA200, RSI(14), golden/death cross, and momentum classification (bullish/bearish/neutral) for each ticker
 - **Limit Order Prices** — AI-suggested limit order prices based on nearby support levels (moving averages, recent lows, round numbers)
 - **Allocation Gap Analysis** — current vs target %, flagged by priority with suggested buy amounts
@@ -83,11 +85,11 @@ richfolio/
 ├── src/
 │   ├── config.ts          # Typed loader for config.json + .env
 │   ├── index.ts           # Entry point (daily/intraday/weekly mode)
-│   ├── fetchPrices.ts     # Yahoo Finance: price, P/E, 52w, beta, dividends, ETF holdings
-│   ├── fetchTechnicals.ts # Yahoo Finance chart: SMA50, SMA200, RSI, momentum signals
+│   ├── fetchPrices.ts     # Yahoo Finance: price, P/E, 52w, beta, dividends, ETF holdings, fundamentals
+│   ├── fetchTechnicals.ts # Yahoo Finance chart: SMA50, SMA200, RSI, momentum, volume change
 │   ├── fetchNews.ts       # NewsAPI: headlines per ticker
 │   ├── analyze.ts         # Allocation gaps, P/E signals, overlap discounts
-│   ├── aiAnalysis.ts      # Gemini AI buy recommendations + limit order prices
+│   ├── aiAnalysis.ts      # Gemini AI: buy recs, limit prices, value ratings, bottom signals
 │   ├── email.ts           # Daily HTML email template + Resend
 │   ├── intradayEmail.ts   # Intraday alert email template
 │   ├── intradayCompare.ts # Compare current vs morning baseline
@@ -108,12 +110,12 @@ richfolio/
 
 ```
 config.json + .env
-  → fetchPrices (Yahoo Finance: prices, P/E, 52w range, beta, dividends, ETF holdings)
-  → fetchTechnicals (Yahoo Finance chart: SMA50, SMA200, RSI, momentum signals)
+  → fetchPrices (Yahoo Finance: prices, P/E, 52w range, beta, dividends, ETF holdings, fundamentals)
+  → fetchTechnicals (Yahoo Finance chart: SMA50, SMA200, RSI, momentum, volume change)
   → fetchNews (NewsAPI: top headlines per ticker)
   → analyze (allocation gaps, P/E signals, overlap discounts, portfolio metrics)
-  → aiAnalyze (Gemini: AI buy recommendations with confidence scores + limit order prices)
-  → email + telegram (deliver daily brief with technical insights for STRONG BUY)
+  → aiAnalyze (Gemini: buy recs + confidence + limit prices + value ratings + bottom signals)
+  → email + telegram (deliver daily brief with value ratings, bottom signals, technicals)
 ```
 
 Weekly mode (`--weekly`) skips news and AI, producing a focused rebalancing report.

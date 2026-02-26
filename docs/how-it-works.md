@@ -14,12 +14,12 @@ Richfolio is a single-pipeline system — no API server, no database, no dashboa
 
 ```
 config.json + .env
-  → fetchPrices (Yahoo Finance: prices, P/E, 52w range, beta, dividends, ETF holdings)
-  → fetchTechnicals (Yahoo Finance chart: SMA50, SMA200, RSI, momentum signals)
+  → fetchPrices (Yahoo Finance: prices, P/E, 52w range, beta, dividends, ETF holdings, fundamentals)
+  → fetchTechnicals (Yahoo Finance chart: SMA50, SMA200, RSI, momentum, volume change)
   → fetchNews (NewsAPI: top headlines per ticker)
   → analyze (allocation gaps, P/E signals, overlap discounts, portfolio metrics)
-  → aiAnalyze (Gemini: AI buy recommendations + confidence scores + limit order prices)
-  → email + telegram (deliver daily brief with technical insights for STRONG BUY)
+  → aiAnalyze (Gemini: buy recs + confidence + limit prices + value ratings + bottom signals)
+  → email + telegram (deliver daily brief with value ratings, bottom signals, technicals)
 ```
 
 Weekly mode (`--weekly`) skips news, technicals, and AI, producing a focused rebalancing report.
@@ -34,11 +34,11 @@ Intraday mode (`--intraday`) re-fetches prices and technicals, re-runs AI (skipp
 src/
 ├── config.ts          # Typed loader for config.json + .env
 ├── index.ts           # Entry point — parses --weekly/--intraday flags, wires modules
-├── fetchPrices.ts     # Yahoo Finance via yahoo-finance2 (instance-based v3 API)
-├── fetchTechnicals.ts # Yahoo Finance chart: SMA50, SMA200, RSI, momentum signals
+├── fetchPrices.ts     # Yahoo Finance via yahoo-finance2 (instance-based v3 API) + fundamentals
+├── fetchTechnicals.ts # Yahoo Finance chart: SMA50, SMA200, RSI, momentum, volume change
 ├── fetchNews.ts       # NewsAPI with ticker-to-company-name mapping
 ├── analyze.ts         # Core analysis: gaps, P/E signals, overlap, portfolio metrics
-├── aiAnalysis.ts      # Gemini prompt builder + JSON response parser + limit order prices
+├── aiAnalysis.ts      # Gemini prompt builder + JSON response parser + value ratings + bottom signals
 ├── state.ts           # Morning baseline save/load for intraday comparison
 ├── intradayCompare.ts # Compare current AI recs vs morning baseline
 ├── email.ts           # Daily HTML email template + Resend delivery
@@ -47,7 +47,7 @@ src/
 └── telegram.ts        # Telegram Bot API delivery (daily + intraday + weekly formatters)
 ```
 
-Each module is independent — they communicate through typed interfaces (`QuoteData`, `TechnicalData`, `AllocationItem`, `AllocationReport`, `AIBuyRecommendation`, `IntradayAlert`).
+Each module is independent — they communicate through typed interfaces (`QuoteData`, `TechnicalData`, `AllocationItem`, `AllocationReport`, `AIBuyRecommendation`, `IntradayAlert`). `QuoteData` includes fundamental data (ROE, debt/equity, FCF, margins, growth) from Yahoo's `financialData` module. `TechnicalData` includes volume change (7d vs 30d) for crypto bottom detection.
 
 ---
 
@@ -111,12 +111,13 @@ Richfolio fetches ~250 days of daily OHLCV data via `yahooFinance.chart()` and c
    - **Neutral** — mixed signals
 5. **Golden/Death cross** — SMA50 crossing above (golden) or below (death) SMA200
 6. **Recent lows** — minimum price in last 7 and 30 trading days (support levels)
+7. **Volume change** — 7-day average volume vs prior 30-day average (used by the crypto bottom-fishing model to detect selling exhaustion)
 
 Tickers with fewer than 50 data points are gracefully skipped.
 
 ### AI Scoring
 
-The Gemini prompt includes all data points per ticker: price, P/E ratios, 52-week position, allocation gap, dividend yield, beta, ETF overlap, technical indicators (MAs, RSI, momentum), and recent news headlines. The AI weighs these holistically and returns:
+The Gemini prompt includes all data points per ticker: price, P/E ratios, 52-week position, allocation gap, dividend yield, beta, ETF overlap, technical indicators (MAs, RSI, momentum, volume change), fundamental data (ROE, debt/equity, FCF, margins, growth, analyst targets), and recent news headlines. The AI applies two structured analytical frameworks and returns:
 
 - **Action**: STRONG BUY, BUY, HOLD, or WAIT
 - **Confidence**: 0–100%
@@ -124,8 +125,18 @@ The Gemini prompt includes all data points per ticker: price, P/E ratios, 52-wee
 - **Suggested amount**: USD to invest
 - **Limit order price**: suggested price below market based on nearest support (MAs, recent lows, round numbers)
 - **Limit price reason**: 1 sentence explaining the support level
+- **Value rating**: A/B/C/D for individual stocks (empty for ETFs and crypto)
+- **Bottom signal**: crypto accumulation zone description (empty for stocks and ETFs)
 
-Technical indicators refine the AI's confidence — a bullish momentum signal with oversold RSI strengthens a buy case, while bearish signals or overbought RSI weaken it. Limit order prices and technical details are displayed for **STRONG BUY** tickers in the email and Telegram output.
+#### Value Investing Framework (Stocks Only)
+
+The AI rates each individual stock A–D based on five fundamental criteria: ROE > 15%, debt/equity < 50%, FCF/operating CF > 80%, positive earnings growth, and price below analyst target. The rating adjusts the AI's confidence score (A boosts ~10 points, D reduces ~10 points). Fundamental data comes from Yahoo's `financialData` module — added to the existing `quoteSummary` call with zero extra API overhead.
+
+#### Crypto Bottom-Fishing Model (BTC/ETH Only)
+
+The AI evaluates four bottom indicators: RSI < 30, volume contraction > 20%, price below 200-day MA, and death cross. When 2+ indicators are present, the AI flags a bottom signal. When 3+ align, it strongly considers upgrading to STRONG BUY with a DCA recommendation. Volume change is computed from existing chart data — no additional API calls.
+
+Technical indicators further refine the AI's confidence — a bullish momentum signal with oversold RSI strengthens a buy case, while bearish signals or overbought RSI weaken it.
 
 If Gemini is unavailable, the system falls back to gap-based ranking (largest allocation gap first).
 
@@ -140,6 +151,8 @@ If Gemini is unavailable, the system falls back to gap-based ranking (largest al
 | News headlines | Yes | No | No |
 | AI recommendations | Yes | Yes | No |
 | Limit order prices | Yes | Yes | No |
+| Value ratings (stocks) | Yes | Yes | No |
+| Bottom signals (crypto) | Yes | Yes | No |
 | Allocation analysis | Yes | Yes | Yes |
 | Baseline comparison | Saves baseline | Compares vs morning | No |
 | Email template | Full brief | Alert (triggered only) | Rebalancing table |

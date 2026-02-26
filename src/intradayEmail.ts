@@ -58,6 +58,14 @@ function priceDeltaHtml(delta: number): string {
   return `<span style="color:${color};font-size:12px;">Price ${sign}${delta.toFixed(1)}% since morning</span>`;
 }
 
+const ratingColors: Record<string, string> = { A: "#2ecc71", B: "#3498db", C: "#f39c12", D: "#e74c3c" };
+
+function valueRatingBadge(rating: string | undefined): string {
+  if (!rating || rating === "") return "";
+  const color = ratingColors[rating] || S.muted;
+  return `<span style="background:${color}22;color:${color};padding:1px 6px;border-radius:3px;font-size:10px;font-weight:bold;margin-left:6px;">Value ${rating}</span>`;
+}
+
 // ── Build HTML ──────────────────────────────────────────────────────
 export function buildIntradayEmailHtml(alerts: IntradayAlert[]): string {
   const time = new Date().toLocaleTimeString("en-AU", {
@@ -78,7 +86,7 @@ export function buildIntradayEmailHtml(alerts: IntradayAlert[]): string {
   <div style="padding:14px 0;border-bottom:1px solid ${S.border};">
     <div style="margin-bottom:6px;">
       <span style="font-weight:bold;font-size:16px;color:#fff;">${a.ticker}</span>
-      &nbsp;${actionBadge(a.currentAction)}
+      &nbsp;${actionBadge(a.currentAction)}${valueRatingBadge(a.valueRating)}
       <span style="float:right;font-size:11px;color:${S.yellow};text-transform:uppercase;">${triggerLabel(a.triggerType)}</span>
     </div>
     <div style="margin-bottom:6px;">
@@ -92,6 +100,7 @@ export function buildIntradayEmailHtml(alerts: IntradayAlert[]): string {
     <div style="font-size:12px;color:${S.text};margin-bottom:4px;">${a.reason}</div>
     ${a.suggestedBuyValue > 0 ? `<div style="font-size:13px;font-weight:bold;color:#fff;">Suggested: ${fmt$(a.suggestedBuyValue)}</div>` : ""}
     ${a.currentAction === "STRONG BUY" && a.suggestedLimitPrice && a.suggestedLimitPrice > 0 ? `<div style="font-size:12px;color:${S.green};margin-top:4px;">Limit order: $${a.suggestedLimitPrice.toFixed(2)}${a.limitPriceReason ? ` — ${a.limitPriceReason}` : ""}</div>` : ""}
+    ${a.bottomSignal && a.bottomSignal !== "" ? `<div style="font-size:11px;color:${S.yellow};margin-top:4px;">Bottom signal: ${a.bottomSignal}</div>` : ""}
   </div>`
     )
     .join("");

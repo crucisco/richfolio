@@ -24,6 +24,16 @@ export interface QuoteData {
   dividendYield: number | null;
   beta: number | null;
   holdings: HoldingInfo[] | null;
+  // Fundamental data (from financialData module)
+  returnOnEquity: number | null;
+  debtToEquity: number | null;
+  freeCashflow: number | null;
+  operatingCashflow: number | null;
+  profitMargins: number | null;
+  revenueGrowth: number | null;
+  earningsGrowth: number | null;
+  targetMeanPrice: number | null;
+  recommendationKey: string | null;
 }
 
 // ── Fetch a single ticker ───────────────────────────────────────────
@@ -32,7 +42,7 @@ async function fetchOne(yahooTicker: string): Promise<QuoteData | null> {
 
   try {
     const result = await yahooFinance.quoteSummary(yahooTicker, {
-      modules: ["price", "summaryDetail", "defaultKeyStatistics", "earningsHistory", "topHoldings"],
+      modules: ["price", "summaryDetail", "defaultKeyStatistics", "earningsHistory", "topHoldings", "financialData"],
     });
 
     const price =
@@ -66,6 +76,9 @@ async function fetchOne(yahooTicker: string): Promise<QuoteData | null> {
       }
     }
 
+    // Extract fundamental data (null for ETFs and crypto)
+    const fin = result.financialData;
+
     // Extract ETF top holdings (null for individual stocks)
     const rawHoldings = result.topHoldings?.holdings;
     const holdings: HoldingInfo[] | null =
@@ -88,6 +101,15 @@ async function fetchOne(yahooTicker: string): Promise<QuoteData | null> {
       dividendYield: result.summaryDetail?.dividendYield ?? null,
       beta: result.defaultKeyStatistics?.beta ?? null,
       holdings,
+      returnOnEquity: fin?.returnOnEquity ?? null,
+      debtToEquity: fin?.debtToEquity ?? null,
+      freeCashflow: fin?.freeCashflow ?? null,
+      operatingCashflow: fin?.operatingCashflow ?? null,
+      profitMargins: fin?.profitMargins ?? null,
+      revenueGrowth: fin?.revenueGrowth ?? null,
+      earningsGrowth: fin?.earningsGrowth ?? null,
+      targetMeanPrice: fin?.targetMeanPrice ?? null,
+      recommendationKey: fin?.recommendationKey ?? null,
     };
   } catch (err) {
     console.error(`  ✗ ${configTicker}: fetch failed —`, (err as Error).message);
@@ -119,6 +141,7 @@ export async function fetchAllPrices(
             ? ` div=${(data.dividendYield * 100).toFixed(2)}%`
             : "") +
           (data.beta != null ? ` β=${data.beta.toFixed(2)}` : "") +
+          (data.returnOnEquity != null ? ` ROE=${(data.returnOnEquity * 100).toFixed(0)}%` : "") +
           (data.holdings != null ? ` [${data.holdings.length} holdings]` : "")
       );
     }

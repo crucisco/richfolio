@@ -15,6 +15,8 @@ export interface AIBuyRecommendation {
   suggestedBuyValue: number;
   suggestedLimitPrice?: number;
   limitPriceReason?: string;
+  valueRating?: string;
+  bottomSignal?: string;
 }
 
 // ── Schema for structured Gemini output ─────────────────────────────
@@ -56,6 +58,16 @@ const responseSchema = {
         description:
           "1 sentence explaining the limit price level, e.g. 'Near 50-day MA support at $218'",
       },
+      valueRating: {
+        type: Type.STRING,
+        description:
+          "For US stocks only: A (excellent value), B (good), C (fair), D (overvalued). Empty string for ETFs and crypto.",
+      },
+      bottomSignal: {
+        type: Type.STRING,
+        description:
+          "For crypto (BTC/ETH) only: brief bottom signal if bottom indicators are present (e.g. 'RSI oversold + volume contraction'). Empty string if no bottom signal or not crypto.",
+      },
     },
     propertyOrdering: [
       "ticker",
@@ -65,6 +77,8 @@ const responseSchema = {
       "suggestedBuyValue",
       "suggestedLimitPrice",
       "limitPriceReason",
+      "valueRating",
+      "bottomSignal",
     ],
   },
 };
@@ -106,6 +120,36 @@ function buildPrompt(
       lines.push(`    RSI(14): ${tech.rsi14} (>70 overbought, <30 oversold)`);
       lines.push(`    Momentum: ${tech.momentumSignal}${tech.goldenCross ? " (golden cross)" : ""}${tech.deathCross ? " (death cross)" : ""}`);
       lines.push(`    7-day low: $${tech.recentLow7d}, 30-day low: $${tech.recentLow30d}`);
+      if (tech.volumeChange7d != null) {
+        lines.push(`    Volume change (7d vs 30d avg): ${tech.volumeChange7d > 0 ? "+" : ""}${tech.volumeChange7d}%${tech.volumeChange7d < -20 ? " (contraction)" : tech.volumeChange7d > 50 ? " (surge)" : ""}`);
+      }
+    }
+
+    // Fundamental data (stocks only — null for ETFs/crypto)
+    if (quote && (quote.returnOnEquity != null || quote.debtToEquity != null || quote.freeCashflow != null)) {
+      lines.push(`  Fundamentals:`);
+      if (quote.returnOnEquity != null) {
+        lines.push(`    ROE: ${(quote.returnOnEquity * 100).toFixed(1)}% (>15% is strong)`);
+      }
+      if (quote.debtToEquity != null) {
+        lines.push(`    Debt/Equity: ${quote.debtToEquity.toFixed(1)}% (<50% is conservative)`);
+      }
+      if (quote.freeCashflow != null && quote.operatingCashflow != null && quote.operatingCashflow > 0) {
+        const fcfRatio = (quote.freeCashflow / quote.operatingCashflow) * 100;
+        lines.push(`    FCF/Operating CF: ${fcfRatio.toFixed(0)}% (>80% shows strong cash conversion)`);
+      }
+      if (quote.profitMargins != null) {
+        lines.push(`    Profit margin: ${(quote.profitMargins * 100).toFixed(1)}%`);
+      }
+      if (quote.revenueGrowth != null) {
+        lines.push(`    Revenue growth: ${(quote.revenueGrowth * 100).toFixed(1)}% YoY`);
+      }
+      if (quote.earningsGrowth != null) {
+        lines.push(`    Earnings growth: ${(quote.earningsGrowth * 100).toFixed(1)}% YoY`);
+      }
+      if (quote.targetMeanPrice != null) {
+        lines.push(`    Analyst target: $${quote.targetMeanPrice.toFixed(2)} (${quote.recommendationKey ?? "N/A"})`);
+      }
     }
 
     lines.push(headlines ? `  Recent news: ${headlines}` : `  Recent news: none`);
@@ -136,7 +180,26 @@ INSTRUCTIONS:
 6. Be concise and specific in reasons. Reference actual numbers (P/E, 52w%, gap).
 7. For ETFs with an "ETF overlap discount", the suggested buy has already been reduced. Mention the overlap when it significantly affects the recommendation.
 8. For STRONG BUY and BUY tickers, suggest a limit order price slightly below current market. Base it on the nearest support level: 50-day MA, recent 7d/30d low, or a round number. Set suggestedLimitPrice (the price) and limitPriceReason (1 sentence explaining the level). Set both to 0/"" for HOLD/WAIT.
-9. Use technical indicators (MA, RSI, momentum) to refine confidence. A bullish momentum signal with oversold RSI strengthens a buy case. A bearish signal or overbought RSI weakens it.`;
+9. Use technical indicators (MA, RSI, momentum) to refine confidence. A bullish momentum signal with oversold RSI strengthens a buy case. A bearish signal or overbought RSI weakens it.
+10. VALUE INVESTING FRAMEWORK (individual stocks only — skip for ETFs and crypto):
+   Rate each stock A through D based on these criteria:
+   - ROE > 15% (strong profitability)
+   - Debt/Equity < 50% (conservative leverage)
+   - FCF/Operating CF > 80% (strong cash conversion)
+   - Positive earnings growth
+   - Current price below analyst target
+   Rating: A (excellent, meets 4-5 criteria), B (good, meets 3), C (fair, meets 1-2), D (overvalued, meets 0 or negative growth with high debt).
+   If fundamental data is unavailable (ETFs, crypto), set valueRating to empty string.
+   Factor the value rating into your confidence: A boosts confidence ~10pts, D reduces ~10pts.
+11. CRYPTO BOTTOM-FISHING MODEL (BTC, ETH only):
+   Evaluate these bottom indicators:
+   - RSI < 30 (oversold)
+   - Volume contraction > 20% (selling exhaustion)
+   - Price below 200-day MA (deep value territory)
+   - Death cross present (may already be priced in — contrarian signal if RSI is very low)
+   If 2+ indicators are present, set bottomSignal to a brief description (e.g. "RSI oversold + volume contraction").
+   If 3+ indicators align, strongly consider upgrading to STRONG BUY with a note about dollar-cost averaging.
+   For non-crypto tickers, set bottomSignal to empty string.`;
 }
 
 // ── Call Gemini ─────────────────────────────────────────────────────
@@ -174,7 +237,10 @@ export async function aiAnalyze(
     for (const rec of recommendations) {
       if (rec.action === "STRONG BUY" || rec.action === "BUY") {
         console.log(
-          `  ${rec.action} ${rec.ticker} (${rec.confidence}%) — ${rec.reason}` +
+          `  ${rec.action} ${rec.ticker} (${rec.confidence}%)` +
+            (rec.valueRating ? ` [${rec.valueRating}]` : "") +
+            (rec.bottomSignal ? ` [${rec.bottomSignal}]` : "") +
+            ` — ${rec.reason}` +
             (rec.suggestedLimitPrice ? ` [limit: $${rec.suggestedLimitPrice}]` : "")
         );
       }

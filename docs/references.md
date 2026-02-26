@@ -51,7 +51,7 @@ Not a portfolio app but the core dependency. Fully typed, actively maintained, w
 | Submodule | Fields we need |
 |-----------|---------------|
 | `summaryDetail` | `trailingPE`, `forwardPE`, `fiftyTwoWeekHigh`, `fiftyTwoWeekLow`, `marketCap`, `dividendYield` |
-| `financialData` | `currentPrice`, `targetMeanPrice`, `recommendationMean` |
+| `financialData` | `currentPrice`, `targetMeanPrice`, `recommendationKey`, `returnOnEquity`, `debtToEquity`, `freeCashflow`, `operatingCashflow`, `profitMargins`, `revenueGrowth`, `earningsGrowth` |
 | `defaultKeyStatistics` | `enterpriseToEbitda`, `priceToBook`, `beta`, `fiveYearAvgDividendYield` |
 | `price` | `regularMarketPrice`, `regularMarketChangePercent` |
 
@@ -76,6 +76,21 @@ Already evaluated as "don't fork" (Python daemon, Chinese push apps, no portfoli
 
 ---
 
+## 🧠 [XinGPT (@xingpt)](https://x.com/xingpt) — AI Agent Skills Framework
+
+> [BlockTempo article](https://www.blocktempo.com/ai-agent-personal-business-productivity-transformation-guide/) by Joe, compiled from [@xingpt on X](https://x.com/xingpt/status/2025219080421277813)
+
+A comprehensive guide on embedding structured analytical "skills" into AI agents for personal finance. The article outlines how to transform a general-purpose AI into a domain expert by giving it specific frameworks with clear criteria and scoring rubrics.
+
+**Directly inspired two Richfolio features:**
+
+- **Value Investing Framework** — the article's "美股價值投資框架" (US Stock Value Investing Framework) concept: rate stocks using fundamental criteria (ROE, debt ratio, FCF, moat) with A/B/C/D grades. Richfolio implements this as prompt instructions fed to Gemini, using Yahoo Finance `financialData` for the underlying metrics.
+- **Crypto Bottom-Fishing Model** — the article's "比特幣抄底模型" (Bitcoin Bottom-Fishing Model) concept: detect accumulation zones using technical indicators (RSI, volume, moving averages). Richfolio implements this using existing chart data with four bottom indicators.
+
+**Key insight adopted:** You don't need separate AI agents or additional API calls — embedding structured frameworks as prompt instructions in a single Gemini call is enough to produce disciplined, criteria-based analysis.
+
+---
+
 ## Design Decisions Informed by These Repos
 
 | Decision | Informed by |
@@ -85,3 +100,6 @@ Already evaluated as "don't fork" (Python daemon, Chinese push apps, no portfoli
 | AI-summarise news per ticker, not raw headlines | MarketPulse prompt pattern |
 | Slash command structure for Claude Code dev workflow | agentic-investment-management CLAUDE.md |
 | Fork-and-run model (no shared server) | Contrast with ghostfolio's self-hosted complexity |
+| Embed analytical skills as prompt instructions, not separate agents | XinGPT's AI agent skills framework |
+| Value investing A–D rating using fundamental criteria | XinGPT's 美股價值投資框架 concept |
+| Crypto bottom-fishing with multi-indicator detection | XinGPT's 比特幣抄底模型 concept |

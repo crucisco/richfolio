@@ -6,7 +6,7 @@ nav_order: 2
 
 # Features
 
-Richfolio packs 12 capabilities into a single pipeline — all running on free-tier APIs.
+Richfolio packs 14 capabilities into a single pipeline — all running on free-tier APIs.
 
 ---
 
@@ -14,7 +14,7 @@ Richfolio packs 12 capabilities into a single pipeline — all running on free-t
 
 Gemini 2.5 Flash analyzes your entire portfolio context — valuation metrics, allocation gaps, news sentiment, technical indicators, risk factors — and returns ranked buy recommendations with confidence scores and reasoning.
 
-Each ticker gets an action: **STRONG BUY**, **BUY**, **HOLD**, or **WAIT**, along with a suggested dollar amount and limit order price. If the Gemini API is unavailable or quota is exhausted, Richfolio falls back to gap-based recommendations automatically.
+Each ticker gets an action: **STRONG BUY**, **BUY**, **HOLD**, or **WAIT**, along with a suggested dollar amount, limit order price, value rating (stocks), and bottom signal (crypto). If the Gemini API is unavailable or quota is exhausted, Richfolio falls back to gap-based recommendations automatically.
 
 ![Daily Brief](screenshots/morning-debrief.png){: style="max-width: 400px; display: block; margin: 16px auto;" }
 
@@ -30,7 +30,7 @@ Richfolio fetches 250 days of historical price data via Yahoo Finance and comput
 - **Momentum Signal** — classified as **bullish**, **bearish**, or **neutral** based on price vs MAs and RSI
 - **Recent Lows** — 7-day and 30-day lows for identifying nearby support levels
 
-All technical data feeds into the AI prompt for better-informed recommendations. For **STRONG BUY** tickers, momentum details are shown directly in the email and Telegram message.
+All technical data — including volume change (7-day vs 30-day average) — feeds into the AI prompt for better-informed recommendations. For **STRONG BUY** tickers, momentum details are shown directly in the email and Telegram message.
 
 ---
 
@@ -43,6 +43,44 @@ When Gemini recommends **STRONG BUY** or **BUY**, it also suggests a limit order
 - **Round numbers** — psychological support at round price levels
 
 Limit order prices and their reasoning are displayed for **STRONG BUY** tickers in the daily email, Telegram message, and intraday alerts.
+
+---
+
+## Value Investing Framework
+
+For individual stocks (not ETFs or crypto), the AI applies a structured value investing framework and assigns an **A–D rating** based on five fundamental criteria:
+
+- **ROE > 15%** — strong profitability
+- **Debt/Equity < 50%** — conservative leverage
+- **FCF/Operating CF > 80%** — strong cash conversion
+- **Positive earnings growth** — growing business
+- **Price below analyst target** — market undervaluation
+
+| Rating | Criteria Met | Meaning |
+|--------|-------------|---------|
+| **A** | 4–5 | Excellent value |
+| **B** | 3 | Good value |
+| **C** | 1–2 | Fair value |
+| **D** | 0 | Overvalued |
+
+The value rating is factored into the AI's confidence score (A boosts ~10 points, D reduces ~10 points) and displayed as a colored badge in email and Telegram output.
+
+All fundamental data comes from Yahoo Finance's `financialData` module, added to the existing `quoteSummary` call — **zero extra API overhead**.
+
+---
+
+## Crypto Bottom-Fishing Model
+
+For BTC and ETH, the AI evaluates four bottom indicators to detect potential accumulation zones:
+
+- **RSI < 30** — oversold territory
+- **Volume contraction > 20%** — selling exhaustion (7-day avg vs prior 30-day avg)
+- **Price below 200-day MA** — deep value territory
+- **Death cross present** — may already be priced in (contrarian signal when RSI is very low)
+
+When **2+ indicators** are present, the AI flags a bottom signal in the output. When **3+ indicators** align, the AI strongly considers upgrading to **STRONG BUY** with a dollar-cost averaging recommendation.
+
+Bottom signals are displayed in the daily email, intraday alerts, and Telegram messages. Volume change data is computed from existing chart data — **no additional API calls**.
 
 ---
 
