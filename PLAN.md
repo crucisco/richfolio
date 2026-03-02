@@ -72,9 +72,10 @@ A step-by-step build guide. Hand this to Claude Code and work through it phase b
 - [x] `.github/workflows/morning-brief.yml`
 - [x] Cron: `0 22 * * *` (10pm UTC = 8am AEST)
 - [x] Node 20, npm ci, npm run start
-- [x] Secrets: `RESEND_API_KEY`, `NEWS_API_KEY`, `GEMINI_API_KEY`, `RECIPIENT_EMAIL`, `CONFIG_JSON`
+- [x] Secrets: `RESEND_API_KEY`, `NEWS_API_KEY`, `GEMINI_API_KEY`, `RECIPIENT_EMAIL`
+- [x] Variable: `CONFIG_JSON` (uses Actions Variables for easy viewing/editing)
 - [x] `workflow_dispatch` for manual trigger
-- [x] `CONFIG_JSON` secret written to file at runtime (private portfolio data)
+- [x] `CONFIG_JSON` variable written to file at runtime (portfolio data)
 
 ---
 
@@ -108,7 +109,7 @@ A step-by-step build guide. Hand this to Claude Code and work through it phase b
 - **Resend free tier**: Must send from `onboarding@resend.dev`. Can only send to account owner email unless domain verified.
 - **GitHub Actions timezone**: always use UTC in cron, convert manually to your local time.
 - **Gemini free tier**: ~15 RPM, 250 RPD. New API keys may take minutes to activate quota.
-- **Config is gitignored**: `config.json` contains private portfolio data. In GitHub Actions, it's written from `CONFIG_JSON` secret.
+- **Config is gitignored**: `config.json` contains portfolio data. In GitHub Actions, it's written from the `CONFIG_JSON` Actions variable.
 
 ---
 

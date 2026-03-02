@@ -38,9 +38,9 @@ A zero-maintenance portfolio monitoring system. Set your target allocations once
 ## Quick Start
 
 1. **Fork** this repo on GitHub
-2. **Add secrets** — go to Settings → Secrets → Actions and add:
-   - `CONFIG_JSON` — your portfolio config (see [config.example.json](config.example.json))
-   - `RESEND_API_KEY` + `RECIPIENT_EMAIL` — for email delivery
+2. **Add config** — go to Settings → Secrets and variables → Actions:
+   - **Variables** tab: `CONFIG_JSON` — your portfolio config (see [config.example.json](config.example.json))
+   - **Secrets** tab: `RESEND_API_KEY` + `RECIPIENT_EMAIL` — for email delivery
    - Optionally: `NEWS_API_KEY`, `GEMINI_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
 3. **Run** — trigger manually from Actions → Morning Brief → Run workflow, or wait for the daily cron (8am AEST)
 
@@ -125,7 +125,7 @@ Intraday mode (`--intraday`) re-fetches prices, technicals, and AI (skipping new
 
 ## Updating Your Portfolio
 
-Edit `config.json` and push (or update the `CONFIG_JSON` GitHub secret). The next run will reflect the changes.
+Edit `config.json` and push (or update the `CONFIG_JSON` GitHub Actions variable). The next run will reflect the changes.
 
 ## References
 

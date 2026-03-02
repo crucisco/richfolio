@@ -30,14 +30,19 @@ Go to your forked repo on GitHub → **Settings** → **Secrets and variables** 
 |--------|-------|----------|
 | `RESEND_API_KEY` | Your Resend API key | Yes |
 | `RECIPIENT_EMAIL` | Your email address | Yes |
-| `CONFIG_JSON` | Full contents of your `config.json` file | Yes |
 | `NEWS_API_KEY` | Your NewsAPI key | No |
 | `GEMINI_API_KEY` | Your Gemini API key | No |
 | `TELEGRAM_BOT_TOKEN` | Your Telegram bot token | No |
 | `TELEGRAM_CHAT_ID` | Your Telegram chat ID | No |
 
+Then switch to the **Variables** tab and add:
+
+| Variable | Value | Required |
+|----------|-------|----------|
+| `CONFIG_JSON` | Full contents of your `config.json` file | Yes |
+
 {: .important}
-> **For `CONFIG_JSON`:** Open your `config.json`, select all, copy, and paste the entire JSON content as the secret value.
+> **For `CONFIG_JSON`:** Open your `config.json`, select all, copy, and paste the entire JSON content as the variable value. Using a variable (instead of a secret) lets you view and edit your portfolio config directly in the GitHub UI.
 
 ---
 
@@ -55,7 +60,7 @@ You can also trigger manually: repo → **Actions** → **Morning Brief** → **
 
 ## Updating Your Portfolio
 
-When your holdings change, update the `CONFIG_JSON` secret on GitHub with your new `config.json` content. The next scheduled run will use the updated data.
+When your holdings change, update the `CONFIG_JSON` variable on GitHub (Settings → Secrets and variables → Actions → Variables tab). The next scheduled run will use the updated data.
 
 ---
 

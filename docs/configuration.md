@@ -98,4 +98,4 @@ The `intradayAlerts` section controls when intraday checks send alerts. All fiel
 When your holdings change:
 
 - **Locally**: Edit `config.json` directly
-- **GitHub Actions**: Update the `CONFIG_JSON` secret with the new JSON content (see [Deployment](deployment))
+- **GitHub Actions**: Update the `CONFIG_JSON` variable with the new JSON content (Settings → Secrets and variables → Actions → Variables tab)

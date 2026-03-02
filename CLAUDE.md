@@ -57,7 +57,7 @@ Private portfolio data is separated from code:
 - `.env` — **gitignored**, API keys + recipient email
 - `src/config.ts` — typed loader that reads both and exports everything
 
-In GitHub Actions, `config.json` is written from the `CONFIG_JSON` secret at runtime.
+In GitHub Actions, `config.json` is written from the `CONFIG_JSON` Actions variable at runtime.
 
 ## GitHub Actions Secrets
 
@@ -65,9 +65,12 @@ In GitHub Actions, `config.json` is written from the `CONFIG_JSON` secret at run
 - `NEWS_API_KEY` — from newsapi.org (optional)
 - `GEMINI_API_KEY` — from aistudio.google.com (optional)
 - `RECIPIENT_EMAIL` — email address for briefs
-- `CONFIG_JSON` — full contents of config.json
 - `TELEGRAM_BOT_TOKEN` — from @BotFather (optional)
 - `TELEGRAM_CHAT_ID` — from @userinfobot (optional)
+
+## GitHub Actions Variables
+
+- `CONFIG_JSON` — full contents of config.json (uses Actions Variables instead of Secrets for easy viewing/editing)
 
 ## Key Gotchas
 

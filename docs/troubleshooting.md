@@ -74,7 +74,7 @@ In the meantime, Richfolio automatically falls back to gap-based recommendations
 cp config.example.json config.json
 ```
 
-Then edit it with your portfolio data. In GitHub Actions, make sure the `CONFIG_JSON` secret contains valid JSON.
+Then edit it with your portfolio data. In GitHub Actions, make sure the `CONFIG_JSON` variable (Settings → Secrets and variables → Actions → Variables tab) contains valid JSON.
 
 ---
 
