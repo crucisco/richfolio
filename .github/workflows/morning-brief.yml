@@ -35,10 +35,10 @@ jobs:
 
       - run: npm ci
 
-      # Write config.json from secret (gitignored, contains private portfolio data)
+      # Write config.json from variable (gitignored, contains portfolio data)
       - run: printenv CONFIG_JSON > config.json
         env:
-          CONFIG_JSON: ${{ secrets.CONFIG_JSON }}
+          CONFIG_JSON: ${{ vars.CONFIG_JSON }}
 
       # Restore intraday state cache (morning baseline for comparison)
       - uses: actions/cache@v4
@@ -108,7 +108,7 @@ jobs:
 
       - run: printenv CONFIG_JSON > config.json
         env:
-          CONFIG_JSON: ${{ secrets.CONFIG_JSON }}
+          CONFIG_JSON: ${{ vars.CONFIG_JSON }}
 
       - run: |
           DAY_OF_WEEK=$(date -u +%u)
