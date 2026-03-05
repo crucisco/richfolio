@@ -202,7 +202,6 @@ Add these secrets:
 | `RESEND_API_KEY` | Your Resend API key | Yes |
 | `NEWS_API_KEY` | Your NewsAPI key | No |
 | `GEMINI_API_KEY` | Your Gemini API key | No |
-| `RECIPIENT_EMAIL` | Your email address | Yes |
 | `TELEGRAM_BOT_TOKEN` | Your Telegram bot token | No |
 | `TELEGRAM_CHAT_ID` | Your Telegram chat ID | No |
 
@@ -211,6 +210,7 @@ Then switch to the **Variables** tab and add:
 | Variable | Value | Required |
 |----------|-------|----------|
 | `CONFIG_JSON` | Full contents of your `config.json` file | Yes |
+| `RECIPIENT_EMAIL` | Your email address | Yes |
 
 **For `CONFIG_JSON`:** Open `config.json`, select all, copy, and paste the entire JSON content as the variable value. Using a variable (instead of a secret) lets you view and edit your portfolio config directly in the GitHub UI.
 

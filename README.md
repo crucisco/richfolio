@@ -39,8 +39,8 @@ A zero-maintenance portfolio monitoring system. Set your target allocations once
 
 1. **Fork** this repo on GitHub
 2. **Add config** — go to Settings → Secrets and variables → Actions:
-   - **Variables** tab: `CONFIG_JSON` — your portfolio config (see [config.example.json](config.example.json))
-   - **Secrets** tab: `RESEND_API_KEY` + `RECIPIENT_EMAIL` — for email delivery
+   - **Variables** tab: `CONFIG_JSON` (portfolio config) + `RECIPIENT_EMAIL` (your email)
+   - **Secrets** tab: `RESEND_API_KEY` — for email delivery
    - Optionally: `NEWS_API_KEY`, `GEMINI_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
 3. **Run** — trigger manually from Actions → Morning Brief → Run workflow, or wait for the daily cron (8am AEST)
 

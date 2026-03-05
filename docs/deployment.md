@@ -29,7 +29,6 @@ Go to your forked repo on GitHub → **Settings** → **Secrets and variables** 
 | Secret | Value | Required |
 |--------|-------|----------|
 | `RESEND_API_KEY` | Your Resend API key | Yes |
-| `RECIPIENT_EMAIL` | Your email address | Yes |
 | `NEWS_API_KEY` | Your NewsAPI key | No |
 | `GEMINI_API_KEY` | Your Gemini API key | No |
 | `TELEGRAM_BOT_TOKEN` | Your Telegram bot token | No |
@@ -40,6 +39,7 @@ Then switch to the **Variables** tab and add:
 | Variable | Value | Required |
 |----------|-------|----------|
 | `CONFIG_JSON` | Full contents of your `config.json` file | Yes |
+| `RECIPIENT_EMAIL` | Your email address | Yes |
 
 {: .important}
 > **For `CONFIG_JSON`:** Open your `config.json`, select all, copy, and paste the entire JSON content as the variable value. Using a variable (instead of a secret) lets you view and edit your portfolio config directly in the GitHub UI.
