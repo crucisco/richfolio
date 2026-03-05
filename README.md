@@ -99,7 +99,7 @@ richfolio/
 │   ├── fetchNews.ts       # NewsAPI: headlines per ticker
 │   ├── analyze.ts         # Allocation gaps, P/E signals, overlap discounts
 │   ├── aiAnalysis.ts      # Gemini AI: buy recs, limit prices, value ratings, bottom signals
-│   ├── detailedAnalysis.ts# Gemini 2.5 Pro: detailed buy thesis + risk analysis for STRONG BUY
+│   ├── detailedAnalysis.ts# Gemini 2.5 Flash: detailed buy thesis + risk analysis for STRONG BUY
 │   ├── analysisUrl.ts     # Compress analysis data into URL hash for GitHub Pages
 │   ├── email.ts           # Daily HTML email template + Resend
 │   ├── intradayEmail.ts   # Intraday alert email template
