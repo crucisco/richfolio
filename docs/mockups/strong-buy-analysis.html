@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NVDA — STRONG BUY Analysis | Richfolio (Mockup)</title>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --card: #16213e;
+    --text: #e0e0e0;
+    --muted: #8a8a9a;
+    --accent: #0f3460;
+    --green: #2ecc71;
+    --red: #e74c3c;
+    --yellow: #f39c12;
+    --blue: #3498db;
+    --border: #2a2a4a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .container { max-width: 800px; margin: 0 auto; padding: 20px 16px; }
+  .header {
+    background: var(--accent);
+    border-radius: 12px 12px 0 0;
+    padding: 24px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .ticker-name { font-size: 28px; font-weight: 800; color: #fff; letter-spacing: -0.5px; }
+  .badge { display: inline-block; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+  .badge-strong-buy { background: var(--green); color: #000; }
+  .badge-value { font-size: 11px; padding: 3px 8px; background: rgba(46,204,113,0.15); color: var(--green); }
+  .header-meta { width: 100%; display: flex; gap: 16px; font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .confidence-bar { display: inline-block; width: 80px; height: 8px; background: var(--border); border-radius: 4px; vertical-align: middle; }
+  .confidence-fill { height: 100%; border-radius: 4px; }
+  .card { background: var(--card); padding: 20px 24px; border-bottom: 1px solid var(--border); }
+  .card:last-child { border-radius: 0 0 12px 12px; border-bottom: none; }
+  .card-title { font-size: 14px; font-weight: 700; color: var(--blue); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+  .chart-container { background: var(--card); padding: 0; border-bottom: 1px solid var(--border); height: 450px; }
+  .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .metric { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; padding: 12px; text-align: center; }
+  .metric-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .metric-value { font-size: 18px; font-weight: 700; color: #fff; margin-top: 4px; }
+  .metric-value.green { color: var(--green); }
+  .metric-value.red { color: var(--red); }
+  .thesis p { margin-bottom: 12px; color: var(--text); }
+  .risk-list { list-style: none; }
+  .risk-list li { padding: 8px 0 8px 20px; position: relative; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 14px; }
+  .risk-list li::before { content: "⚠"; position: absolute; left: 0; color: var(--yellow); }
+  .fundamentals-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .action-box { background: rgba(46,204,113,0.08); border: 1px solid rgba(46,204,113,0.25); border-radius: 8px; padding: 16px; }
+  .action-amount { font-size: 24px; font-weight: 800; color: #fff; }
+  .action-limit { font-size: 13px; color: var(--green); margin-top: 6px; }
+  .footer { background: var(--accent); border-radius: 0 0 12px 12px; padding: 16px 24px; text-align: center; font-size: 11px; color: var(--muted); }
+  @media (max-width: 600px) {
+    .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+    .fundamentals-grid { grid-template-columns: repeat(2, 1fr); }
+    .chart-container { height: 350px; }
+    .header { padding: 16px; }
+    .card { padding: 16px; }
+    .ticker-name { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <span class="ticker-name">NVDA</span>
+    <span class="badge badge-strong-buy">STRONG BUY</span>
+    <span class="badge badge-value">Value A</span>
+    <div class="header-meta">
+      <span>
+        <span class="confidence-bar"><span class="confidence-fill" style="width:88%;background:var(--green);"></span></span>
+        &nbsp;88% confidence
+      </span>
+      <span>As of 2026-03-05</span>
+      <span style="color:#fff;font-weight:700;">$131.42</span>
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <div class="chart-container">
+    <div class="tradingview-widget-container" style="height:100%;width:100%;">
+      <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%;"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
+      {
+        "autosize": true,
+        "symbol": "NVDA",
+        "interval": "D",
+        "timezone": "Etc/UTC",
+        "theme": "dark",
+        "style": "1",
+        "locale": "en",
+        "backgroundColor": "#16213e",
+        "gridColor": "rgba(42,42,74,0.5)",
+        "hide_top_toolbar": false,
+        "hide_legend": false,
+        "save_image": false,
+        "calendar": false,
+        "range": "6M",
+        "studies": [
+          "STD;SMA|v_input_1=50",
+          "STD;SMA|v_input_1=200",
+          "STD;RSI"
+        ],
+        "support_host": "https://www.tradingview.com"
+      }
+      </script>
+    </div>
+  </div>
+
+  <!-- Key Metrics -->
+  <div class="card">
+    <div class="card-title">Key Metrics</div>
+    <div class="metrics-grid">
+      <div class="metric"><div class="metric-label">Price</div><div class="metric-value">$131.42</div></div>
+      <div class="metric"><div class="metric-label">Trailing P/E</div><div class="metric-value">35.2</div></div>
+      <div class="metric"><div class="metric-label">Forward P/E</div><div class="metric-value">28.3</div></div>
+      <div class="metric"><div class="metric-label">52w Position</div><div class="metric-value green">46%</div></div>
+      <div class="metric"><div class="metric-label">RSI (14)</div><div class="metric-value">52</div></div>
+      <div class="metric"><div class="metric-label">50-Day MA</div><div class="metric-value">$127</div></div>
+      <div class="metric"><div class="metric-label">200-Day MA</div><div class="metric-value">$113</div></div>
+      <div class="metric"><div class="metric-label">Momentum</div><div class="metric-value green">bullish</div></div>
+    </div>
+  </div>
+
+  <!-- Buy Thesis -->
+  <div class="card thesis">
+    <div class="card-title">Buy Thesis</div>
+    <p>NVIDIA presents a compelling STRONG BUY opportunity as the stock trades well below its 52-week high while AI infrastructure spending accelerates. The current allocation gap of 4.2% below target makes this an ideal time to add exposure.</p>
+    <p>From a valuation perspective, the forward P/E of 28.3x sits below the 5-year average of 32.1x, suggesting the market has already priced in near-term concerns. With ROE above 90% and analyst targets averaging $185, there's meaningful upside from current levels.</p>
+    <p>The technical setup is favorable — price sits above the 50-day MA with bullish momentum, and RSI at 52 indicates the stock is neither overbought nor oversold. The golden cross pattern (50MA > 200MA) confirms the uptrend remains intact.</p>
+    <p>Adding NVIDIA now addresses the portfolio's underweight in semiconductor/AI exposure while the risk-reward ratio is attractive. A limit order near the 50-day MA support would provide an even better entry point.</p>
+  </div>
+
+  <!-- Risk Analysis -->
+  <div class="card">
+    <div class="card-title">Risk Analysis</div>
+    <ul class="risk-list">
+      <li>AI spending could slow if enterprise adoption disappoints, pressuring revenue growth expectations and the premium valuation multiple.</li>
+      <li>Increasing competition from AMD MI300X and custom chips (Google TPU, Amazon Trainium) could erode NVIDIA's data center market share over 12-18 months.</li>
+      <li>Export restrictions to China may tighten further, impacting ~20% of data center revenue and creating inventory risk.</li>
+      <li>At a beta of 1.65, NVDA amplifies market drawdowns — a broad market correction would hit this position harder than the portfolio average.</li>
+    </ul>
+  </div>
+
+  <!-- Fundamentals -->
+  <div class="card">
+    <div class="card-title">Fundamentals</div>
+    <div class="fundamentals-grid">
+      <div class="metric"><div class="metric-label">ROE</div><div class="metric-value green">93.2%</div></div>
+      <div class="metric"><div class="metric-label">Debt/Equity</div><div class="metric-value green">17.2%</div></div>
+      <div class="metric"><div class="metric-label">Profit Margin</div><div class="metric-value green">55.2%</div></div>
+      <div class="metric"><div class="metric-label">Rev Growth</div><div class="metric-value green">12.2%</div></div>
+      <div class="metric"><div class="metric-label">Earnings Growth</div><div class="metric-value green">16.8%</div></div>
+      <div class="metric"><div class="metric-label">Analyst Target</div><div class="metric-value green">$185.00</div></div>
+    </div>
+  </div>
+
+  <!-- Signals -->
+  <div class="card">
+    <div class="card-title">Signals</div>
+    <div style="font-size:14px;"><span style="color:var(--green);">Golden Cross (50MA > 200MA)</span></div>
+  </div>
+
+  <!-- Action Summary -->
+  <div class="card">
+    <div class="card-title">Action Summary</div>
+    <div class="action-box">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">Suggested Investment</div>
+      <div class="action-amount">$3,500</div>
+      <div class="action-limit">Limit Order: $128.50 — Near 50-day MA support at $127</div>
+    </div>
+  </div>
+
+  <!-- 52-Week Range -->
+  <div class="card">
+    <div class="card-title">52-Week Range</div>
+    <div style="display:flex;align-items:center;gap:12px;font-size:13px;">
+      <span style="color:var(--muted);">$75.61</span>
+      <div style="flex:1;height:8px;background:var(--border);border-radius:4px;position:relative;">
+        <div style="position:absolute;left:46%;top:-4px;width:4px;height:16px;background:var(--blue);border-radius:2px;transform:translateX(-50%);"></div>
+      </div>
+      <span style="color:var(--muted);">$195.95</span>
+    </div>
+    <div style="text-align:center;font-size:12px;color:var(--muted);margin-top:6px;">Current: $131.42 (46% from low)</div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <p>This analysis was AI-generated by Google Gemini on 2026-03-05.</p>
+    <p style="margin-top:4px;">This is not financial advice. Do your own research before making investment decisions.</p>
+    <p style="margin-top:8px;">Powered by <a href="https://github.com/furic/richfolio" style="color:var(--blue);text-decoration:none;">Richfolio</a></p>
+  </div>
+
+</div>
+</body>
+</html>

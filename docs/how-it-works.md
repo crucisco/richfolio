@@ -39,6 +39,8 @@ src/
 ├── fetchNews.ts       # NewsAPI with ticker-to-company-name mapping
 ├── analyze.ts         # Core analysis: gaps, P/E signals, overlap, portfolio metrics
 ├── aiAnalysis.ts      # Gemini prompt builder + JSON response parser + value ratings + bottom signals
+├── detailedAnalysis.ts# Gemini 2.5 Pro: detailed buy thesis + risk analysis for STRONG BUY tickers
+├── analysisUrl.ts     # Compress analysis data into URL hash for the GitHub Pages analysis page
 ├── state.ts           # Morning baseline save/load for intraday comparison
 ├── intradayCompare.ts # Compare current AI recs vs morning baseline
 ├── email.ts           # Daily HTML email template + Resend delivery
@@ -139,6 +141,23 @@ The AI evaluates four bottom indicators: RSI < 30, volume contraction > 20%, pri
 Technical indicators further refine the AI's confidence — a bullish momentum signal with oversold RSI strengthens a buy case, while bearish signals or overbought RSI weaken it.
 
 If Gemini is unavailable, the system falls back to gap-based ranking (largest allocation gap first).
+
+### Detailed Analysis Page (STRONG BUY Only)
+
+For each **STRONG BUY** ticker, a separate Gemini 2.5 Pro call generates an in-depth buy thesis (3–4 paragraphs) and 3–4 specific risk factors. This detailed analysis, along with all metrics and technical data, is compressed using zlib and encoded as a base64url URL hash fragment.
+
+The email and Telegram messages include a **"More Details"** link pointing to a static analysis page hosted on GitHub Pages (`docs/analysis/index.html`). The page decodes the URL hash client-side using pako and renders:
+
+- **Interactive TradingView chart** — 6-month candlestick with SMA50, SMA200, and RSI overlays
+- **Key metrics grid** — price, P/E, 52-week position, RSI, moving averages, momentum
+- **Buy thesis** — multi-paragraph detailed analysis from Gemini Pro
+- **Risk analysis** — specific risk factors to watch
+- **Fundamentals** — ROE, debt/equity, margins, growth, analyst target (stocks only)
+- **Signals** — golden/death cross, bottom signals (crypto)
+- **Action summary** — suggested investment amount, limit order price with reasoning
+- **52-week range bar** — visual position within the yearly range
+
+No server-side logic is needed — all data is embedded in the URL. The page works offline once loaded. The URL is typically ~1,000–1,500 characters, well within email client limits.
 
 ---
 
