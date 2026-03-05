@@ -159,6 +159,8 @@ The email and Telegram messages include a **"More Details"** link pointing to a 
 
 No server-side logic is needed — all data is embedded in the URL. The page works offline once loaded. The URL is typically ~1,000–1,500 characters, well within email client limits.
 
+![STRONG BUY Analysis](screenshots/strong-buy-analysis.png){: style="max-width: 500px; display: block; margin: 16px auto;" }
+
 ---
 
 ## Three Modes
