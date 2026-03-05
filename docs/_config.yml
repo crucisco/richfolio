@@ -21,5 +21,4 @@ footer_content: "Richfolio &mdash; free, open-source portfolio monitoring."
 nav_sort: order
 
 exclude:
-  - setup.md
   - Gemfile.lock
