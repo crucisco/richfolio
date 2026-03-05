@@ -79,6 +79,9 @@ function buildMessage(
           if (rec.bottomSignal && rec.bottomSignal !== "") {
             lines.push(`   🔻 Bottom: ${rec.bottomSignal}`);
           }
+          if (rec.analysisUrl) {
+            lines.push(`   📋 <a href="${rec.analysisUrl}">More Details</a>`);
+          }
         }
       }
 
@@ -289,6 +292,9 @@ function buildIntradayMessage(alerts: IntradayAlert[]): string {
     lines.push(`   <i>${alert.reason}</i>`);
     if (alert.suggestedBuyValue > 0) {
       lines.push(`   Suggested: ${fmt$(alert.suggestedBuyValue)}`);
+    }
+    if (alert.analysisUrl) {
+      lines.push(`   📋 <a href="${alert.analysisUrl}">More Details</a>`);
     }
     lines.push("");
   }

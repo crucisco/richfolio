@@ -101,6 +101,7 @@ export function buildIntradayEmailHtml(alerts: IntradayAlert[]): string {
     ${a.suggestedBuyValue > 0 ? `<div style="font-size:13px;font-weight:bold;color:#fff;">Suggested: ${fmt$(a.suggestedBuyValue)}</div>` : ""}
     ${a.currentAction === "STRONG BUY" && a.suggestedLimitPrice && a.suggestedLimitPrice > 0 ? `<div style="font-size:12px;color:${S.green};margin-top:4px;">Limit order: $${a.suggestedLimitPrice.toFixed(2)}${a.limitPriceReason ? ` — ${a.limitPriceReason}` : ""}</div>` : ""}
     ${a.bottomSignal && a.bottomSignal !== "" ? `<div style="font-size:11px;color:${S.yellow};margin-top:4px;">Bottom signal: ${a.bottomSignal}</div>` : ""}
+    ${a.currentAction === "STRONG BUY" && a.analysisUrl ? `<div style="margin-top:8px;"><a href="${a.analysisUrl}" style="display:inline-block;background:#3498db22;color:#3498db;padding:4px 12px;border-radius:4px;font-size:11px;font-weight:bold;text-decoration:none;border:1px solid #3498db44;">More Details &rarr;</a></div>` : ""}
   </div>`
     )
     .join("");

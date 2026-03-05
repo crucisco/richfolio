@@ -147,6 +147,10 @@ function buildAISection(aiRecs: AIBuyRecommendation[], technicals: Record<string
     </div>
     <div style="font-size:12px;color:${S.text};margin-top:4px;">${rec.reason}</div>
     ${buildTechnicalInsight(rec, technicals[rec.ticker])}
+    ${rec.action === "STRONG BUY" && rec.analysisUrl ? `
+    <div style="margin-top:8px;">
+      <a href="${rec.analysisUrl}" style="display:inline-block;background:${S.blue}22;color:${S.blue};padding:4px 12px;border-radius:4px;font-size:11px;font-weight:bold;text-decoration:none;border:1px solid ${S.blue}44;">More Details &rarr;</a>
+    </div>` : ""}
   </div>`).join("") : `<p style="color:${S.muted};font-size:13px;">No strong buy opportunities identified today.</p>`}
   ${others.length > 0 ? `
   <div style="margin-top:12px;">

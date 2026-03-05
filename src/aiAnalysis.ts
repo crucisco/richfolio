@@ -17,6 +17,7 @@ export interface AIBuyRecommendation {
   limitPriceReason?: string;
   valueRating?: string;
   bottomSignal?: string;
+  analysisUrl?: string;
 }
 
 // ── Schema for structured Gemini output ─────────────────────────────

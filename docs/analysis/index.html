@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Richfolio Analysis</title>
+<script src="https://cdn.jsdelivr.net/npm/pako@2/dist/pako.min.js"></script>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --card: #16213e;
+    --text: #e0e0e0;
+    --muted: #8a8a9a;
+    --accent: #0f3460;
+    --green: #2ecc71;
+    --red: #e74c3c;
+    --yellow: #f39c12;
+    --blue: #3498db;
+    --border: #2a2a4a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .container { max-width: 800px; margin: 0 auto; padding: 20px 16px; }
+
+  /* Header */
+  .header {
+    background: var(--accent);
+    border-radius: 12px 12px 0 0;
+    padding: 24px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .ticker-name {
+    font-size: 28px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -0.5px;
+  }
+  .badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .badge-strong-buy { background: var(--green); color: #000; }
+  .badge-value {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+  .badge-value-A { background: rgba(46,204,113,0.15); color: var(--green); }
+  .badge-value-B { background: rgba(52,152,219,0.15); color: var(--blue); }
+  .badge-value-C { background: rgba(243,156,18,0.15); color: var(--yellow); }
+  .badge-value-D { background: rgba(231,76,60,0.15); color: var(--red); }
+  .header-meta {
+    width: 100%;
+    display: flex;
+    gap: 16px;
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .confidence-bar {
+    display: inline-block;
+    width: 80px;
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    vertical-align: middle;
+  }
+  .confidence-fill {
+    height: 100%;
+    border-radius: 4px;
+  }
+
+  /* Card */
+  .card {
+    background: var(--card);
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .card:last-child { border-radius: 0 0 12px 12px; border-bottom: none; }
+  .card-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--blue);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+  }
+
+  /* Chart */
+  .chart-container {
+    background: var(--card);
+    padding: 0;
+    border-bottom: 1px solid var(--border);
+    height: 450px;
+  }
+  .chart-container iframe { border: none; }
+
+  /* Metrics grid */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .metric {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+  }
+  .metric-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .metric-value { font-size: 18px; font-weight: 700; color: #fff; margin-top: 4px; }
+  .metric-value.green { color: var(--green); }
+  .metric-value.red { color: var(--red); }
+  .metric-value.yellow { color: var(--yellow); }
+
+  /* Buy thesis */
+  .thesis p { margin-bottom: 12px; color: var(--text); }
+
+  /* Risks */
+  .risk-list { list-style: none; }
+  .risk-list li {
+    padding: 8px 0 8px 20px;
+    position: relative;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 14px;
+  }
+  .risk-list li::before {
+    content: "⚠";
+    position: absolute;
+    left: 0;
+    color: var(--yellow);
+  }
+
+  /* Fundamentals */
+  .fundamentals-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  /* Action summary */
+  .action-box {
+    background: rgba(46,204,113,0.08);
+    border: 1px solid rgba(46,204,113,0.25);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .action-amount { font-size: 24px; font-weight: 800; color: #fff; }
+  .action-limit { font-size: 13px; color: var(--green); margin-top: 6px; }
+  .action-bottom { font-size: 13px; color: var(--yellow); margin-top: 4px; }
+
+  /* Footer */
+  .footer {
+    background: var(--accent);
+    border-radius: 0 0 12px 12px;
+    padding: 16px 24px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* Error state */
+  .error {
+    text-align: center;
+    padding: 60px 24px;
+    color: var(--muted);
+  }
+  .error h2 { color: var(--red); margin-bottom: 12px; }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+    .fundamentals-grid { grid-template-columns: repeat(2, 1fr); }
+    .chart-container { height: 350px; }
+    .header { padding: 16px; }
+    .card { padding: 16px; }
+    .ticker-name { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="container" id="app">
+  <div class="error" id="error" style="display:none;">
+    <h2>No Analysis Data</h2>
+    <p>This link may have expired or been corrupted.<br>Analysis data is embedded in the URL — try opening the original link from your email.</p>
+  </div>
+</div>
+
+<script>
+// ── Key expansion map (compact → full) ───────────────────────────────
+const KEY_MAP = {
+  t: 'ticker', d: 'date', a: 'action', c: 'confidence',
+  r: 'reason', bt: 'buyThesis', ri: 'risks',
+  bv: 'suggestedBuyValue', lp: 'suggestedLimitPrice', lr: 'limitPriceReason',
+  vr: 'valueRating', bs: 'bottomSignal',
+  p: 'price', pe: 'trailingPE', fpe: 'forwardPE',
+  h: 'fiftyTwoWeekHigh', l: 'fiftyTwoWeekLow', wp: 'fiftyTwoWeekPercent',
+  s50: 'sma50', s200: 'sma200', rsi: 'rsi14',
+  ms: 'momentumSignal', gc: 'goldenCross', dc: 'deathCross',
+  roe: 'returnOnEquity', de: 'debtToEquity',
+  pm: 'profitMargins', rg: 'revenueGrowth', eg: 'earningsGrowth',
+  tp: 'targetMeanPrice',
+};
+
+function expand(compact) {
+  const full = {};
+  for (const [k, v] of Object.entries(compact)) {
+    full[KEY_MAP[k] || k] = v;
+  }
+  return full;
+}
+
+// ── Decode URL hash ──────────────────────────────────────────────────
+function decodeHash() {
+  const hash = window.location.hash.slice(1);
+  if (!hash) return null;
+  try {
+    // base64url → bytes
+    const b64 = hash.replace(/-/g, '+').replace(/_/g, '/');
+    const pad = b64.length % 4 === 0 ? '' : '='.repeat(4 - b64.length % 4);
+    const binary = atob(b64 + pad);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    // inflate
+    const json = pako.inflateRaw(bytes, { to: 'string' });
+    return expand(JSON.parse(json));
+  } catch (e) {
+    console.error('Failed to decode analysis data:', e);
+    return null;
+  }
+}
+
+// ── Formatters ──────────────────────────────────────────────────────
+function fmt$(n) { return '$' + Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 }); }
+function fmtPct(n) { return (n * 100).toFixed(0) + '%'; }
+function fmtNum(n, d) { return n != null ? Number(n).toFixed(d ?? 1) : 'N/A'; }
+
+function confidenceColor(c) {
+  return c >= 70 ? 'var(--green)' : c >= 40 ? 'var(--yellow)' : 'var(--red)';
+}
+
+function rsiClass(rsi) {
+  if (rsi < 30) return 'green';
+  if (rsi > 70) return 'red';
+  return '';
+}
+
+function momentumColor(m) {
+  if (m === 'bullish') return 'green';
+  if (m === 'bearish') return 'red';
+  return '';
+}
+
+// ── TradingView ticker mapping ──────────────────────────────────────
+function tvSymbol(ticker) {
+  if (ticker === 'BTC' || ticker === 'BTC-USD') return 'COINBASE:BTCUSD';
+  if (ticker === 'ETH' || ticker === 'ETH-USD') return 'COINBASE:ETHUSD';
+  return ticker;
+}
+
+// ── Render ───────────────────────────────────────────────────────────
+function render(d) {
+  document.title = `${d.ticker} — STRONG BUY Analysis | Richfolio`;
+
+  const app = document.getElementById('app');
+  const confColor = confidenceColor(d.confidence);
+
+  let html = '';
+
+  // Header
+  html += `
+  <div class="header">
+    <span class="ticker-name">${d.ticker}</span>
+    <span class="badge badge-strong-buy">${d.action}</span>
+    ${d.valueRating ? `<span class="badge badge-value badge-value-${d.valueRating}">Value ${d.valueRating}</span>` : ''}
+    <div class="header-meta">
+      <span>
+        <span class="confidence-bar"><span class="confidence-fill" style="width:${d.confidence}%;background:${confColor};"></span></span>
+        &nbsp;${d.confidence}% confidence
+      </span>
+      <span>As of ${d.date}</span>
+      <span style="color:#fff;font-weight:700;">$${Number(d.price).toFixed(2)}</span>
+    </div>
+  </div>`;
+
+  // Chart
+  const symbol = tvSymbol(d.ticker);
+  html += `
+  <div class="chart-container">
+    <div class="tradingview-widget-container" style="height:100%;width:100%;">
+      <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%;"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
+      {
+        "autosize": true,
+        "symbol": "${symbol}",
+        "interval": "D",
+        "timezone": "Etc/UTC",
+        "theme": "dark",
+        "style": "1",
+        "locale": "en",
+        "backgroundColor": "#16213e",
+        "gridColor": "rgba(42,42,74,0.5)",
+        "hide_top_toolbar": false,
+        "hide_legend": false,
+        "save_image": false,
+        "calendar": false,
+        "range": "6M",
+        "studies": [
+          "STD;SMA|v_input_1=50",
+          "STD;SMA|v_input_1=200",
+          "STD;RSI"
+        ],
+        "support_host": "https://www.tradingview.com"
+      }
+      <\/script>
+    </div>
+  </div>`;
+
+  // Key Metrics
+  const metrics = [
+    { label: 'Price', value: '$' + Number(d.price).toFixed(2) },
+    { label: 'Trailing P/E', value: d.trailingPE != null ? fmtNum(d.trailingPE) : 'N/A' },
+    { label: 'Forward P/E', value: d.forwardPE != null ? fmtNum(d.forwardPE) : 'N/A' },
+    { label: '52w Position', value: d.fiftyTwoWeekPercent != null ? fmtPct(d.fiftyTwoWeekPercent) : 'N/A',
+      cls: d.fiftyTwoWeekPercent != null ? (d.fiftyTwoWeekPercent < 0.3 ? 'green' : d.fiftyTwoWeekPercent > 0.8 ? 'red' : '') : '' },
+    { label: 'RSI (14)', value: d.rsi14 != null ? fmtNum(d.rsi14, 0) : 'N/A', cls: d.rsi14 != null ? rsiClass(d.rsi14) : '' },
+    { label: '50-Day MA', value: d.sma50 != null ? '$' + fmtNum(d.sma50, 0) : 'N/A' },
+    { label: '200-Day MA', value: d.sma200 != null ? '$' + fmtNum(d.sma200, 0) : 'N/A' },
+    { label: 'Momentum', value: d.momentumSignal || 'N/A', cls: momentumColor(d.momentumSignal) },
+  ];
+
+  html += `
+  <div class="card">
+    <div class="card-title">Key Metrics</div>
+    <div class="metrics-grid">
+      ${metrics.map(m => `
+      <div class="metric">
+        <div class="metric-label">${m.label}</div>
+        <div class="metric-value ${m.cls || ''}">${m.value}</div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+
+  // Buy Thesis
+  if (d.buyThesis) {
+    const paragraphs = d.buyThesis.split(/\n\n+/).filter(Boolean);
+    html += `
+    <div class="card thesis">
+      <div class="card-title">Buy Thesis</div>
+      ${paragraphs.map(p => `<p>${p}</p>`).join('')}
+    </div>`;
+  }
+
+  // Risk Analysis
+  if (d.risks && d.risks.length > 0) {
+    html += `
+    <div class="card">
+      <div class="card-title">Risk Analysis</div>
+      <ul class="risk-list">
+        ${d.risks.map(r => `<li>${r}</li>`).join('')}
+      </ul>
+    </div>`;
+  }
+
+  // Fundamentals (if available)
+  const fundEntries = [
+    d.returnOnEquity != null ? { label: 'ROE', value: (d.returnOnEquity * 100).toFixed(1) + '%', cls: d.returnOnEquity > 0.15 ? 'green' : '' } : null,
+    d.debtToEquity != null ? { label: 'Debt/Equity', value: d.debtToEquity.toFixed(1) + '%', cls: d.debtToEquity < 50 ? 'green' : d.debtToEquity > 100 ? 'red' : '' } : null,
+    d.profitMargins != null ? { label: 'Profit Margin', value: (d.profitMargins * 100).toFixed(1) + '%', cls: d.profitMargins > 0.2 ? 'green' : '' } : null,
+    d.revenueGrowth != null ? { label: 'Rev Growth', value: (d.revenueGrowth * 100).toFixed(1) + '%', cls: d.revenueGrowth > 0 ? 'green' : 'red' } : null,
+    d.earningsGrowth != null ? { label: 'Earnings Growth', value: (d.earningsGrowth * 100).toFixed(1) + '%', cls: d.earningsGrowth > 0 ? 'green' : 'red' } : null,
+    d.targetMeanPrice != null ? { label: 'Analyst Target', value: '$' + fmtNum(d.targetMeanPrice, 2), cls: d.targetMeanPrice > d.price ? 'green' : 'red' } : null,
+  ].filter(Boolean);
+
+  if (fundEntries.length > 0) {
+    html += `
+    <div class="card">
+      <div class="card-title">Fundamentals</div>
+      <div class="fundamentals-grid">
+        ${fundEntries.map(f => `
+        <div class="metric">
+          <div class="metric-label">${f.label}</div>
+          <div class="metric-value ${f.cls || ''}">${f.value}</div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  // Cross signals
+  const signals = [];
+  if (d.goldenCross) signals.push('<span style="color:var(--green);">Golden Cross (50MA > 200MA)</span>');
+  if (d.deathCross) signals.push('<span style="color:var(--red);">Death Cross (50MA < 200MA)</span>');
+  if (d.bottomSignal) signals.push('<span style="color:var(--yellow);">Bottom Signal: ' + d.bottomSignal + '</span>');
+  if (signals.length > 0) {
+    html += `
+    <div class="card">
+      <div class="card-title">Signals</div>
+      <div style="font-size:14px;">${signals.join('<br>')}</div>
+    </div>`;
+  }
+
+  // Action Summary
+  html += `
+  <div class="card">
+    <div class="card-title">Action Summary</div>
+    <div class="action-box">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">Suggested Investment</div>
+      <div class="action-amount">${fmt$(d.suggestedBuyValue)}</div>
+      ${d.suggestedLimitPrice ? `<div class="action-limit">Limit Order: $${Number(d.suggestedLimitPrice).toFixed(2)}${d.limitPriceReason ? ' — ' + d.limitPriceReason : ''}</div>` : ''}
+      ${d.bottomSignal ? `<div class="action-bottom">Bottom Signal: ${d.bottomSignal}</div>` : ''}
+    </div>
+  </div>`;
+
+  // 52-week range bar
+  if (d.fiftyTwoWeekLow != null && d.fiftyTwoWeekHigh != null && d.fiftyTwoWeekPercent != null) {
+    html += `
+    <div class="card">
+      <div class="card-title">52-Week Range</div>
+      <div style="display:flex;align-items:center;gap:12px;font-size:13px;">
+        <span style="color:var(--muted);">$${Number(d.fiftyTwoWeekLow).toFixed(2)}</span>
+        <div style="flex:1;height:8px;background:var(--border);border-radius:4px;position:relative;">
+          <div style="position:absolute;left:${(d.fiftyTwoWeekPercent * 100).toFixed(0)}%;top:-4px;width:4px;height:16px;background:var(--blue);border-radius:2px;transform:translateX(-50%);"></div>
+        </div>
+        <span style="color:var(--muted);">$${Number(d.fiftyTwoWeekHigh).toFixed(2)}</span>
+      </div>
+      <div style="text-align:center;font-size:12px;color:var(--muted);margin-top:6px;">Current: $${Number(d.price).toFixed(2)} (${fmtPct(d.fiftyTwoWeekPercent)} from low)</div>
+    </div>`;
+  }
+
+  // Footer
+  html += `
+  <div class="footer">
+    <p>This analysis was AI-generated by Google Gemini on ${d.date}.</p>
+    <p style="margin-top:4px;">This is not financial advice. Do your own research before making investment decisions.</p>
+    <p style="margin-top:8px;">Powered by <a href="https://github.com/furic/richfolio" style="color:var(--blue);text-decoration:none;">Richfolio</a></p>
+  </div>`;
+
+  app.innerHTML = html;
+}
+
+// ── Init ─────────────────────────────────────────────────────────────
+const data = decodeHash();
+if (data) {
+  render(data);
+} else {
+  document.getElementById('error').style.display = 'block';
+}
+</script>
+</body>
+</html>
