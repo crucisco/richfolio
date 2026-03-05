@@ -1,6 +1,6 @@
 # Richfolio
 
-[![Morning Brief](https://github.com/furic/richfolio/actions/workflows/morning-brief.yml/badge.svg)](https://github.com/furic/richfolio/actions/workflows/morning-brief.yml)
+[![Portfolio Monitor](https://github.com/furic/richfolio/actions/workflows/portfolio-monitor.yml/badge.svg)](https://github.com/furic/richfolio/actions/workflows/portfolio-monitor.yml)
 [![Docs](https://github.com/furic/richfolio/actions/workflows/docs.yml/badge.svg)](https://furic.github.io/richfolio/)
 [![Node.js](https://img.shields.io/badge/Node.js-22%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -11,16 +11,19 @@
 A zero-maintenance portfolio monitoring system. Set your target allocations once, get daily briefings with allocation gaps, AI-powered buy signals, and relevant news — delivered via email and Telegram, automatically via GitHub Actions.
 
 <p align="center">
-  <img src="docs/screenshots/morning-debrief.png" alt="Daily Brief" width="280">
+  <img src="docs/screenshots/morning-debrief.png" alt="Daily Brief" width="260">
   &nbsp;&nbsp;
-  <img src="docs/screenshots/intraday-alert.png" alt="Intraday Alert" width="280">
+  <img src="docs/screenshots/intraday-alert.png" alt="Intraday Alert" width="260">
   &nbsp;&nbsp;
-  <img src="docs/screenshots/weekly-rebalance.png" alt="Weekly Rebalance" width="280">
+  <img src="docs/screenshots/weekly-rebalance.png" alt="Weekly Rebalance" width="260">
+</p>
+<p align="center">
+  <img src="docs/screenshots/strong-buy-analysis.png" alt="STRONG BUY Analysis Page" width="500">
 </p>
 
 ## Features
 
-- **AI Buy Recommendations** — Gemini-powered analysis considering valuation, allocation gap, news sentiment, technicals, and risk (with gap-based fallback)
+- **AI Buy Recommendations** — Gemini-powered analysis considering valuation, allocation gap, news sentiment, technicals, and risk (with gap-based fallback). STRONG BUY tickers get a **"More Details"** link to a dedicated analysis page with interactive chart, buy thesis, risk analysis, and full metrics
 - **Value Investing Framework** — AI rates individual stocks A–D based on ROE, debt/equity, FCF, earnings growth, and analyst targets (data from Yahoo Finance, zero extra API calls)
 - **Crypto Bottom-Fishing Model** — AI detects accumulation zones for BTC/ETH using RSI, volume contraction, 200MA position, and death cross signals
 - **Technical Momentum Signals** — SMA50, SMA200, RSI(14), golden/death cross, and momentum classification (bullish/bearish/neutral) for each ticker
@@ -42,7 +45,7 @@ A zero-maintenance portfolio monitoring system. Set your target allocations once
    - **Variables** tab: `CONFIG_JSON` (portfolio config) + `RECIPIENT_EMAIL` (your email)
    - **Secrets** tab: `RESEND_API_KEY` — for email delivery
    - Optionally: `NEWS_API_KEY`, `GEMINI_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
-3. **Run** — trigger manually from Actions → Morning Brief → Run workflow, or wait for the daily cron (8am AEST)
+3. **Run** — trigger manually from Actions → Portfolio Monitor → Run workflow, or wait for the daily cron (8am AEST)
 
 That's it — no local setup required. See the [full setup guide](https://furic.github.io/richfolio/getting-started) for detailed instructions on each API key.
 
@@ -91,6 +94,8 @@ richfolio/
 │   ├── fetchNews.ts       # NewsAPI: headlines per ticker
 │   ├── analyze.ts         # Allocation gaps, P/E signals, overlap discounts
 │   ├── aiAnalysis.ts      # Gemini AI: buy recs, limit prices, value ratings, bottom signals
+│   ├── detailedAnalysis.ts# Gemini 2.5 Pro: detailed buy thesis + risk analysis for STRONG BUY
+│   ├── analysisUrl.ts     # Compress analysis data into URL hash for GitHub Pages
 │   ├── email.ts           # Daily HTML email template + Resend
 │   ├── intradayEmail.ts   # Intraday alert email template
 │   ├── intradayCompare.ts # Compare current vs morning baseline
@@ -98,9 +103,10 @@ richfolio/
 │   ├── weeklyEmail.ts     # Weekly rebalancing email template
 │   └── telegram.ts        # Telegram bot delivery (daily/intraday/weekly)
 ├── docs/
-│   └── setup.md           # Detailed setup & API key guide
+│   ├── analysis/          # Static analysis page (decodes URL hash, renders with TradingView)
+│   └── *.md               # GitHub Pages documentation site
 ├── .github/workflows/
-│   └── morning-brief.yml  # Daily + intraday + weekly cron jobs
+│   └── portfolio-monitor.yml  # Daily + intraday + weekly cron jobs
 ├── config.example.json    # Template portfolio config
 ├── .env.example           # Template environment variables
 ├── package.json
