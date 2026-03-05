@@ -30,10 +30,13 @@ export function loadBaseline(): MorningBaseline | null {
     const raw = readFileSync(BASELINE_FILE, "utf-8");
     const data = JSON.parse(raw) as MorningBaseline;
 
-    const today = new Date().toISOString().slice(0, 10);
-    if (data.date !== today) {
+    // Check baseline age instead of date string — works across any timezone
+    // (daily at 10pm UTC + intraday at 0-6am UTC straddles midnight in many TZs)
+    const ageHours =
+      (Date.now() - new Date(data.timestamp).getTime()) / (1000 * 60 * 60);
+    if (ageHours > 18) {
       console.log(
-        `Baseline is from ${data.date}, not today (${today}) — skipping comparison`
+        `Baseline is ${ageHours.toFixed(1)}h old (max 18h) — skipping comparison`
       );
       return null;
     }
