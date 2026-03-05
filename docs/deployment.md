@@ -54,7 +54,7 @@ The workflow runs automatically:
 - **Intraday** — weekdays at 10am, 12pm, 2pm, 4pm AEST (alerts only when signals strengthen)
 - **Weekly** — every Sunday at 10pm UTC (Monday 8am AEST)
 
-You can also trigger manually: repo → **Actions** → **Morning Brief** → **Run workflow** → choose daily, intraday, or weekly mode.
+You can also trigger manually: repo → **Actions** → **Portfolio Monitor** → **Run workflow** → choose daily, intraday, or weekly mode.
 
 ---
 
@@ -81,7 +81,7 @@ Or use GitHub's **Sync fork** button on your fork's main page.
 
 ## Customizing the Schedule
 
-Edit `.github/workflows/morning-brief.yml`:
+Edit `.github/workflows/portfolio-monitor.yml`:
 
 ```yaml
 schedule:

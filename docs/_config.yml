@@ -5,6 +5,8 @@ baseurl: /richfolio
 
 remote_theme: just-the-docs/just-the-docs
 
+logo: /richfolio/icon.png
+
 color_scheme: dark
 
 search_enabled: true

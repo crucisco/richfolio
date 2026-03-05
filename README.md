@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/icon.png" alt="Richfolio" width="120">
+</p>
+
 # Richfolio
 
 [![Portfolio Monitor](https://github.com/furic/richfolio/actions/workflows/portfolio-monitor.yml/badge.svg)](https://github.com/furic/richfolio/actions/workflows/portfolio-monitor.yml)

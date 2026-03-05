@@ -1,4 +1,4 @@
-name: Morning Brief
+name: Portfolio Monitor
 
 on:
   schedule:
