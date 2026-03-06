@@ -70,7 +70,44 @@ Powers the AI buy recommendations with Gemini 2.5 Flash.
    GEMINI_API_KEY=AIzaSyxxxxxxxxxxxxxxxxx
    ```
 
-**Free tier:** 250 requests/day, 10 requests/minute. Richfolio uses 1 request per run. New keys may take a few minutes for quota to activate (you might see 429 errors initially). If not set or quota exhausted, falls back to gap-based recommendations.
+**Free tier:** 250 requests/day, 10 requests/minute. Richfolio uses 1 request per run (plus 1 per STRONG BUY ticker for detailed analysis). New keys may take a few minutes for quota to activate (you might see 429 errors initially). If not set or quota exhausted, falls back to gap-based recommendations.
+
+### A note on Gemini model tiers
+
+Google's pricing page states that Gemini 2.5 Pro is ["Free of charge"](https://ai.google.dev/gemini-api/docs/pricing#gemini-2.5-pro) for both input and output tokens. In practice, however, free-tier Pro requests frequently hit `429 RESOURCE_EXHAUSTED` errors — even with minimal usage. Google does not publish the actual RPD (requests per day) limits for the free tier; third-party sources suggest Pro may be capped at ~100 RPD, but the real number appears to vary by account and is not guaranteed.
+
+**Richfolio uses Gemini 2.5 Flash for all AI calls** (both main analysis and detailed STRONG BUY analysis) because Flash has a more generous and reliable free-tier quota. The quality difference for financial analysis text is negligible.
+
+### Using a different AI model
+
+If you have a paid Gemini plan or want to use a different provider entirely, the model is easy to swap. The AI calls live in two files:
+
+- `src/aiAnalysis.ts` — main buy recommendations (line ~225)
+- `src/detailedAnalysis.ts` — detailed STRONG BUY analysis (line ~119)
+
+**To switch to Gemini Pro** (if you have paid quota):
+
+```typescript
+// In both files, change:
+model: "gemini-2.5-flash",
+// To:
+model: "gemini-2.5-pro",
+```
+
+**To switch to Claude or another provider**, you would replace the `@google/genai` calls with your provider's SDK. For example, with the Anthropic SDK:
+
+```typescript
+// npm install @anthropic-ai/sdk
+import Anthropic from "@anthropic-ai/sdk";
+const client = new Anthropic(); // uses ANTHROPIC_API_KEY env var
+const response = await client.messages.create({
+  model: "claude-sonnet-4-20250514",
+  max_tokens: 1024,
+  messages: [{ role: "user", content: prompt }],
+});
+```
+
+The prompt and JSON parsing logic stay the same — only the API call changes. Add your provider's API key to `.env` and GitHub Actions secrets.
 
 ---
 
