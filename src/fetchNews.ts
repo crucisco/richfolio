@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { toYahooTicker } from "./config.js";
+import type { QuoteData } from "./fetchPrices.js";
 
 const NEWS_API_KEY = process.env.NEWS_API_KEY;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -7,29 +8,38 @@ const NEWS_API_BASE = "https://newsapi.org/v2/everything";
 const MAX_ARTICLES_PER_TICKER = 3;
 const BATCH_SIZE = 5; // tickers per request — keeps OR queries manageable
 
-// Company/ETF names for better article matching (tickers alone miss many hits)
-// Use specific financial phrases to avoid false positives (e.g. "bond" matching animal articles)
-const TICKER_NAMES: Record<string, string[]> = {
-  AAPL: ["Apple"],
-  AMZN: ["Amazon"],
-  INTC: ["Intel"],
-  TSM: ["TSMC", "Taiwan Semiconductor"],
-  DVN: ["Devon Energy"],
-  BIPC: ["Brookfield Infrastructure"],
+// Override search terms for tickers where the Yahoo name is too generic or unhelpful.
+// Most tickers auto-generate search terms from Yahoo's shortName (e.g. "Apple Inc." → "Apple").
+const TICKER_NAME_OVERRIDES: Record<string, string[]> = {
   VOO: ["S&P 500", "S&P500"],
   QQQ: ["Nasdaq", "NASDAQ"],
-  SMH: ["semiconductor ETF", "chip stocks", "semiconductor index"],
+  SMH: ["semiconductor ETF", "chip stocks"],
   XLU: ["utilities ETF", "utility stocks"],
   XLV: ["healthcare ETF", "health stocks"],
-  ITA: ["defense ETF", "aerospace ETF", "defense stocks"],
+  ITA: ["defense ETF", "aerospace ETF"],
   GLD: ["gold price", "gold ETF", "gold futures"],
-  BTC: ["Bitcoin"],
-  ETH: ["Ethereum"],
-  BSV: ["bond ETF", "bond market", "treasury bond", "short-term bond", "fixed income", "Vanguard bond"],
+  BSV: ["bond ETF", "bond market", "treasury bond", "fixed income"],
   ESGU: ["ESG investing", "ESG fund"],
-  IJH: ["mid-cap ETF", "midcap stocks", "S&P MidCap"],
+  IJH: ["mid-cap ETF", "midcap stocks"],
   AIQ: ["artificial intelligence ETF", "AI stocks"],
 };
+
+/** Build search terms for a ticker using Yahoo name + overrides */
+function getSearchNames(ticker: string, priceData: Record<string, QuoteData>): string[] {
+  // Use override if defined (replaces auto-generated names entirely)
+  if (TICKER_NAME_OVERRIDES[ticker]) return TICKER_NAME_OVERRIDES[ticker];
+
+  // Auto-generate from Yahoo's shortName: "Apple Inc." → "Apple", "Amazon.com, Inc." → "Amazon.com"
+  const quote = priceData[ticker];
+  if (quote?.name) {
+    const cleaned = quote.name
+      .replace(/,?\s*(Inc\.?|Corp\.?|Ltd\.?|PLC|S\.?A\.?|N\.?V\.?|SE|plc|Holdings?|Group|Co\.?)$/i, "")
+      .trim();
+    if (cleaned.length > 1) return [cleaned];
+  }
+
+  return [];
+}
 
 // ── Types ───────────────────────────────────────────────────────────
 export interface NewsItem {
@@ -54,14 +64,15 @@ interface NewsApiResponse {
 
 // ── Fetch a batch of tickers ────────────────────────────────────────
 async function fetchBatch(
-  tickers: string[]
+  tickers: string[],
+  priceData: Record<string, QuoteData>
 ): Promise<Record<string, NewsItem[]>> {
   // Build query using ticker symbols + company names for better coverage
   const queryTerms: string[] = [];
   for (const ticker of tickers) {
     queryTerms.push(ticker);
-    const names = TICKER_NAMES[ticker];
-    if (names) queryTerms.push(...names);
+    const names = getSearchNames(ticker, priceData);
+    if (names.length > 0) queryTerms.push(...names);
   }
   const query = queryTerms.join(" OR ");
 
@@ -101,11 +112,11 @@ async function fetchBatch(
       if (result[ticker].length >= MAX_ARTICLES_PER_TICKER) continue;
 
       const yahooTicker = toYahooTicker(ticker);
-      const names = TICKER_NAMES[ticker] || [];
+      const names = getSearchNames(ticker, priceData);
       const matches =
         titleUpper.includes(ticker.toUpperCase()) ||
         titleUpper.includes(yahooTicker.toUpperCase()) ||
-        names.some((name) => titleUpper.includes(name.toUpperCase()));
+        names.some((n) => titleUpper.includes(n.toUpperCase()));
 
       if (matches) {
         result[ticker].push({
@@ -216,7 +227,8 @@ Return each ticker with the indices of headlines that ARE financially relevant. 
 
 // ── Fetch news for all tickers ──────────────────────────────────────
 export async function fetchNews(
-  tickers: string[]
+  tickers: string[],
+  priceData: Record<string, QuoteData> = {}
 ): Promise<Record<string, NewsItem[]>> {
   if (!NEWS_API_KEY) {
     console.warn("NEWS_API_KEY not set — skipping news fetch\n");
@@ -230,7 +242,7 @@ export async function fetchNews(
   for (let i = 0; i < tickers.length; i += BATCH_SIZE) {
     const batch = tickers.slice(i, i + BATCH_SIZE);
     try {
-      const batchNews = await fetchBatch(batch);
+      const batchNews = await fetchBatch(batch, priceData);
       Object.assign(allNews, batchNews);
     } catch (err) {
       console.error(

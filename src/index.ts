@@ -233,7 +233,7 @@ try {
   } else {
     // Daily mode: full brief with news + AI + technicals
     const [news, technicals] = await Promise.all([
-      fetchNews(tickers),
+      fetchNews(tickers, prices),
       fetchTechnicals(tickers),
     ]);
     const aiRecs = await aiAnalyze(report, prices, news, technicals);

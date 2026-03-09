@@ -13,6 +13,7 @@ export interface HoldingInfo {
 
 export interface QuoteData {
   ticker: string;
+  name: string | null;
   price: number;
   trailingPE: number | null;
   forwardPE: number | null;
@@ -104,6 +105,7 @@ async function fetchOne(yahooTicker: string): Promise<QuoteData | null> {
 
     return {
       ticker: configTicker,
+      name: result.price?.shortName ?? result.price?.longName ?? null,
       price,
       trailingPE: result.summaryDetail?.trailingPE ?? null,
       forwardPE: result.summaryDetail?.forwardPE ?? null,
