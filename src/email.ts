@@ -113,7 +113,7 @@ function buildTechnicalInsight(rec: AIBuyRecommendation, tech: TechnicalData | u
     }
   }
 
-  // Bottom signal (crypto STRONG BUY/BUY)
+  // Bottom signal (oversold detection)
   if (rec.bottomSignal && rec.bottomSignal !== "") {
     html += `<br><span style="color:${S.yellow};">Bottom signal:</span> ${rec.bottomSignal}`;
   }

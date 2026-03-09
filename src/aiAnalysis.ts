@@ -67,7 +67,7 @@ const responseSchema = {
       bottomSignal: {
         type: Type.STRING,
         description:
-          "For crypto (BTC/ETH) only: brief bottom signal if bottom indicators are present (e.g. 'RSI oversold + volume contraction'). Empty string if no bottom signal or not crypto.",
+          "Brief bottom/oversold signal if bottom indicators are present (e.g. 'RSI oversold + volume contraction'). Applies to all tickers (stocks, ETFs, crypto). Empty string if no bottom signal.",
       },
     },
     propertyOrdering: [
@@ -192,15 +192,15 @@ INSTRUCTIONS:
    Rating: A (excellent, meets 4-5 criteria), B (good, meets 3), C (fair, meets 1-2), D (overvalued, meets 0 or negative growth with high debt).
    If fundamental data is unavailable (ETFs, crypto), set valueRating to empty string.
    Factor the value rating into your confidence: A boosts confidence ~10pts, D reduces ~10pts.
-11. CRYPTO BOTTOM-FISHING MODEL (BTC, ETH only):
-   Evaluate these bottom indicators:
+11. BOTTOM-FISHING MODEL (all tickers — stocks, ETFs, and crypto):
+   Evaluate these bottom indicators for every ticker:
    - RSI < 30 (oversold)
    - Volume contraction > 20% (selling exhaustion)
    - Price below 200-day MA (deep value territory)
    - Death cross present (may already be priced in — contrarian signal if RSI is very low)
    If 2+ indicators are present, set bottomSignal to a brief description (e.g. "RSI oversold + volume contraction").
    If 3+ indicators align, strongly consider upgrading to STRONG BUY with a note about dollar-cost averaging.
-   For non-crypto tickers, set bottomSignal to empty string.`;
+   If no bottom indicators are present, set bottomSignal to empty string.`;
 }
 
 // ── Call Gemini ─────────────────────────────────────────────────────

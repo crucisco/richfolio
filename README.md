@@ -42,7 +42,7 @@ What Richfolio does is **monitor your portfolio daily** and help you decide **wh
 
 - **AI Buy Recommendations** — Gemini-powered analysis considering valuation, allocation gap, news sentiment, technicals, and risk (with gap-based fallback). STRONG BUY tickers get a **"More Details"** link to a dedicated analysis page with interactive chart, buy thesis, risk analysis, and full metrics
 - **Value Investing Framework** — AI rates individual stocks A–D based on ROE, debt/equity, FCF, earnings growth, and analyst targets (data from Yahoo Finance, zero extra API calls)
-- **Crypto Bottom-Fishing Model** — AI detects accumulation zones for BTC/ETH using RSI, volume contraction, 200MA position, and death cross signals
+- **Bottom-Fishing Model** — AI detects oversold/accumulation zones for all tickers using RSI, volume contraction, 200MA position, and death cross signals
 - **Technical Momentum Signals** — SMA50, SMA200, RSI(14), golden/death cross, and momentum classification (bullish/bearish/neutral) for each ticker
 - **Limit Order Prices** — AI-suggested limit order prices based on nearby support levels (moving averages, recent lows, round numbers)
 - **Allocation Gap Analysis** — current vs target %, flagged by priority with suggested buy amounts

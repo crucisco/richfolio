@@ -106,7 +106,7 @@ async function fetchOne(ticker: string): Promise<TechnicalData | null> {
     const recentLow7d = Math.min(...last7);
     const recentLow30d = Math.min(...last30);
 
-    // Volume change: avg 7d vs prior 30d (for crypto bottom-fishing model)
+    // Volume change: avg 7d vs prior 30d (for bottom-fishing model)
     const volumes = quotes
       .map((q) => q.volume)
       .filter((v): v is number => v != null && v > 0);

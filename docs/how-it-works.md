@@ -49,7 +49,7 @@ src/
 └── telegram.ts        # Telegram Bot API delivery (daily + intraday + weekly formatters)
 ```
 
-Each module is independent — they communicate through typed interfaces (`QuoteData`, `TechnicalData`, `AllocationItem`, `AllocationReport`, `AIBuyRecommendation`, `IntradayAlert`). `QuoteData` includes fundamental data (ROE, debt/equity, FCF, margins, growth) from Yahoo's `financialData` module. `TechnicalData` includes volume change (7d vs 30d) for crypto bottom detection.
+Each module is independent — they communicate through typed interfaces (`QuoteData`, `TechnicalData`, `AllocationItem`, `AllocationReport`, `AIBuyRecommendation`, `IntradayAlert`). `QuoteData` includes fundamental data (ROE, debt/equity, FCF, margins, growth) from Yahoo's `financialData` module. `TechnicalData` includes volume change (7d vs 30d) for bottom-fishing detection.
 
 ---
 
@@ -113,7 +113,7 @@ Richfolio fetches ~250 days of daily OHLCV data via `yahooFinance.chart()` and c
    - **Neutral** — mixed signals
 5. **Golden/Death cross** — SMA50 crossing above (golden) or below (death) SMA200
 6. **Recent lows** — minimum price in last 7 and 30 trading days (support levels)
-7. **Volume change** — 7-day average volume vs prior 30-day average (used by the crypto bottom-fishing model to detect selling exhaustion)
+7. **Volume change** — 7-day average volume vs prior 30-day average (used by the bottom-fishing model to detect selling exhaustion)
 
 Tickers with fewer than 50 data points are gracefully skipped.
 
@@ -128,15 +128,15 @@ The Gemini prompt includes all data points per ticker: price, P/E ratios, 52-wee
 - **Limit order price**: suggested price below market based on nearest support (MAs, recent lows, round numbers)
 - **Limit price reason**: 1 sentence explaining the support level
 - **Value rating**: A/B/C/D for individual stocks (empty for ETFs and crypto)
-- **Bottom signal**: crypto accumulation zone description (empty for stocks and ETFs)
+- **Bottom signal**: oversold/accumulation zone description (empty if no indicators present)
 
 #### Value Investing Framework (Stocks Only)
 
 The AI rates each individual stock A–D based on five fundamental criteria: ROE > 15%, debt/equity < 50%, FCF/operating CF > 80%, positive earnings growth, and price below analyst target. The rating adjusts the AI's confidence score (A boosts ~10 points, D reduces ~10 points). Fundamental data comes from Yahoo's `financialData` module — added to the existing `quoteSummary` call with zero extra API overhead.
 
-#### Crypto Bottom-Fishing Model (BTC/ETH Only)
+#### Bottom-Fishing Model (All Tickers)
 
-The AI evaluates four bottom indicators: RSI < 30, volume contraction > 20%, price below 200-day MA, and death cross. When 2+ indicators are present, the AI flags a bottom signal. When 3+ align, it strongly considers upgrading to STRONG BUY with a DCA recommendation. Volume change is computed from existing chart data — no additional API calls.
+The AI evaluates four bottom indicators for every ticker (stocks, ETFs, and crypto): RSI < 30, volume contraction > 20%, price below 200-day MA, and death cross. When 2+ indicators are present, the AI flags a bottom signal. When 3+ align, it strongly considers upgrading to STRONG BUY with a DCA recommendation. Volume change is computed from existing chart data — no additional API calls.
 
 Technical indicators further refine the AI's confidence — a bullish momentum signal with oversold RSI strengthens a buy case, while bearish signals or overbought RSI weaken it.
 
