@@ -38,7 +38,7 @@ export const totalPortfolioValueUSD = json.totalPortfolioValueUSD;
 // ── Intraday alert config with defaults ─────────────────────────────
 const DEFAULT_INTRADAY: IntradayAlertConfig = {
   enabled: true,
-  confidenceIncreaseThreshold: 5,
+  confidenceIncreaseThreshold: 10,
   minConfidenceToAlert: 80,
   actionUpgradesAlert: true,
   onlyAlertForActions: ["STRONG BUY", "BUY"],

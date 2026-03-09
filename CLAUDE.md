@@ -41,7 +41,7 @@ src/index.ts (entry point — parses --weekly/--intraday flags, wires modules)
   → src/analyze.ts         # Allocation gaps, P/E signals, ETF overlap discounts, portfolio beta, dividend estimate
   → src/aiAnalysis.ts      # Gemini AI: buy recs + confidence + limit prices + value ratings + crypto bottom signals
   → src/state.ts           # Save/load morning baseline for intraday comparison
-  → src/intradayCompare.ts # Compare current AI recs vs morning baseline, detect strengthening
+  → src/intradayCompare.ts # Compare current AI recs vs morning baseline, alert on STRONG BUY changes
   → src/email.ts           # Daily dark-themed HTML email + Resend
   → src/intradayEmail.ts   # Intraday alert email (focused, only triggered tickers)
   → src/weeklyEmail.ts     # Weekly rebalancing HTML email + Resend

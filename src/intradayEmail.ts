@@ -43,11 +43,11 @@ function actionBadge(action: string): string {
 function triggerLabel(type: IntradayAlert["triggerType"]): string {
   switch (type) {
     case "action_upgrade":
-      return "Action Upgraded";
-    case "new_signal":
-      return "New Signal";
-    case "confidence_increase":
-      return "Confidence Increased";
+      return "Upgraded to STRONG BUY";
+    case "action_downgrade":
+      return "Downgraded from STRONG BUY";
+    case "confidence_change":
+      return "Confidence Changed";
   }
 }
 

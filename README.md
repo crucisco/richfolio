@@ -132,7 +132,7 @@ config.json + .env
 
 Weekly mode (`--weekly`) skips news and AI, producing a focused rebalancing report.
 
-Intraday mode (`--intraday`) re-fetches prices, technicals, and AI (skipping news), compares against the morning baseline, and alerts only when buy signals strengthen significantly.
+Intraday mode (`--intraday`) re-fetches prices, technicals, and AI (skipping news), compares against the morning baseline, and alerts only for STRONG BUY-related changes: upgrades to STRONG BUY, downgrades from STRONG BUY, or confidence shifts ≥10 while at STRONG BUY.
 
 ## Updating Your Portfolio
 

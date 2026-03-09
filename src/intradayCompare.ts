@@ -17,7 +17,7 @@ export interface IntradayAlert {
   valueRating?: string;
   bottomSignal?: string;
   analysisUrl?: string;
-  triggerType: "confidence_increase" | "action_upgrade" | "new_signal";
+  triggerType: "confidence_change" | "action_upgrade" | "action_downgrade";
   currentPrice: number;
   morningPrice: number;
   priceDelta: number;
@@ -45,8 +45,6 @@ export function compareWithBaseline(
   );
 
   for (const rec of currentRecs) {
-    if (!config.onlyAlertForActions.includes(rec.action)) continue;
-
     const morning = baselineMap.get(rec.ticker);
     const morningAction = morning?.action ?? "N/A";
     const morningConfidence = morning?.confidence ?? 0;
@@ -54,32 +52,28 @@ export function compareWithBaseline(
     const currentPrice = currentPrices[rec.ticker] ?? 0;
 
     const confidenceDelta = rec.confidence - morningConfidence;
-    const currentRank = ACTION_RANK[rec.action] ?? 0;
-    const morningRank = ACTION_RANK[morningAction] ?? 0;
-    const actionUpgraded = currentRank > morningRank;
+    const wasStrongBuy = morningAction === "STRONG BUY";
+    const isStrongBuy = rec.action === "STRONG BUY";
 
     let triggerType: IntradayAlert["triggerType"] | null = null;
 
-    // Trigger 1: Confidence increased beyond threshold AND meets minimum
-    if (
-      confidenceDelta >= config.confidenceIncreaseThreshold &&
-      rec.confidence >= config.minConfidenceToAlert
-    ) {
-      triggerType = "confidence_increase";
+    // Trigger 1: Downgraded FROM STRONG BUY to any other level
+    if (wasStrongBuy && !isStrongBuy) {
+      triggerType = "action_downgrade";
     }
 
-    // Trigger 2: Action upgraded (e.g., BUY → STRONG BUY)
-    if (
-      config.actionUpgradesAlert &&
-      actionUpgraded &&
-      rec.confidence >= config.minConfidenceToAlert
-    ) {
+    // Trigger 2: Upgraded TO STRONG BUY from any other level
+    if (!wasStrongBuy && isStrongBuy) {
       triggerType = "action_upgrade";
     }
 
-    // Trigger 3: New signal — ticker wasn't in morning recs at all
-    if (!morning && rec.confidence >= config.minConfidenceToAlert) {
-      triggerType = "new_signal";
+    // Trigger 3: Confidence changed ≥ threshold while staying STRONG BUY
+    if (
+      wasStrongBuy &&
+      isStrongBuy &&
+      Math.abs(confidenceDelta) >= config.confidenceIncreaseThreshold
+    ) {
+      triggerType = "confidence_change";
     }
 
     if (triggerType) {

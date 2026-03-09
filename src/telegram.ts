@@ -273,9 +273,9 @@ function buildIntradayMessage(alerts: IntradayAlert[]): string {
     const triggerLabel =
       alert.triggerType === "action_upgrade"
         ? "upgraded"
-        : alert.triggerType === "new_signal"
-          ? "new signal"
-          : "strengthened";
+        : alert.triggerType === "action_downgrade"
+          ? "downgraded"
+          : "confidence changed";
 
     lines.push(
       `${actionEmoji(alert.currentAction)} <b>${alert.currentAction} ${alert.ticker}</b> (${triggerLabel})`

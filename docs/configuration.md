@@ -36,10 +36,7 @@ cp config.example.json config.json
   "totalPortfolioValueUSD": 50000,
   "intradayAlerts": {
     "enabled": true,
-    "confidenceIncreaseThreshold": 5,
-    "minConfidenceToAlert": 80,
-    "actionUpgradesAlert": true,
-    "onlyAlertForActions": ["STRONG BUY", "BUY"]
+    "confidenceIncreaseThreshold": 10
   }
 }
 ```
@@ -61,13 +58,15 @@ cp config.example.json config.json
 
 The `intradayAlerts` section controls when intraday checks send alerts. All fields are optional — sensible defaults apply.
 
+Alerts trigger only for STRONG BUY-related changes:
+1. **Upgraded to STRONG BUY** — any other level → STRONG BUY
+2. **Downgraded from STRONG BUY** — STRONG BUY → any other level
+3. **Confidence changed** — confidence shifted ≥ threshold while staying STRONG BUY
+
 | Field | Default | Description |
 |-------|---------|-------------|
 | `enabled` | `true` | Master toggle. Set `false` to disable intraday alerts entirely. |
-| `confidenceIncreaseThreshold` | `5` | Minimum confidence increase (percentage points) to trigger an alert. |
-| `minConfidenceToAlert` | `80` | Only alert if the new confidence is at least this high. |
-| `actionUpgradesAlert` | `true` | Also alert when the action upgrades (e.g., BUY → STRONG BUY). |
-| `onlyAlertForActions` | `["STRONG BUY", "BUY"]` | Only consider tickers with these current actions. |
+| `confidenceIncreaseThreshold` | `10` | Minimum confidence change (absolute, percentage points) to trigger an alert for STRONG BUY tickers. |
 
 ---
 
