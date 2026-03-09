@@ -26,6 +26,18 @@ A zero-maintenance portfolio monitoring system. Set your target allocations once
   <img src="docs/screenshots/strong-buy-analysis.png" alt="STRONG BUY Analysis Page" width="500">
 </p>
 
+## Who Should Use This
+
+Richfolio **does not pick stocks for you**. You should already have your own research and investment thesis — your own portfolio of stocks, ETFs, or crypto that you believe in.
+
+What Richfolio does is **monitor your portfolio daily** and help you decide **when** to buy. It tracks prices, technicals, news sentiment, and allocation gaps, then uses AI to surface the best timing opportunities across your holdings.
+
+- **You bring the portfolio** — set your target allocations once in a simple JSON config
+- **Richfolio brings the signals** — buy recommendations, limit order prices, and detailed analysis
+- **You make the final call** — every purchase decision is yours; the tool only suggests
+
+**No coding skill required.** Fork the repo, spend ~10 minutes registering free API accounts (Resend, NewsAPI, Gemini), paste your keys into GitHub Settings, and you're done. Everything runs automatically via GitHub Actions at $0/month.
+
 ## Features
 
 - **AI Buy Recommendations** — Gemini-powered analysis considering valuation, allocation gap, news sentiment, technicals, and risk (with gap-based fallback). STRONG BUY tickers get a **"More Details"** link to a dedicated analysis page with interactive chart, buy thesis, risk analysis, and full metrics
