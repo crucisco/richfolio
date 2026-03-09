@@ -81,7 +81,10 @@ For all tickers (stocks, ETFs, and crypto), the AI evaluates four bottom indicat
 - **Price below 200-day MA** — deep value territory
 - **Death cross present** — may already be priced in (contrarian signal when RSI is very low)
 
-When **2+ indicators** are present, the AI flags a bottom signal in the output. When **3+ indicators** align, the AI strongly considers upgrading to **STRONG BUY** with a dollar-cost averaging recommendation.
+Thresholds differ by asset type to reduce false signals:
+
+- **Crypto (BTC, ETH)**: bottom signal flagged when **2+ indicators** are present. STRONG BUY upgrade considered at **3+**.
+- **Stocks and ETFs**: bottom signal flagged when **3+ indicators** are present (stricter). STRONG BUY upgrade considered when **all 4** align.
 
 Bottom signals are displayed in the daily email, intraday alerts, and Telegram messages. Volume change data is computed from existing chart data — **no additional API calls**.
 

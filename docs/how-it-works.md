@@ -136,7 +136,7 @@ The AI rates each individual stock A–D based on five fundamental criteria: ROE
 
 #### Bottom-Fishing Model (All Tickers)
 
-The AI evaluates four bottom indicators for every ticker (stocks, ETFs, and crypto): RSI < 30, volume contraction > 20%, price below 200-day MA, and death cross. When 2+ indicators are present, the AI flags a bottom signal. When 3+ align, it strongly considers upgrading to STRONG BUY with a DCA recommendation. Volume change is computed from existing chart data — no additional API calls.
+The AI evaluates four bottom indicators for every ticker (stocks, ETFs, and crypto): RSI < 30, volume contraction > 20%, price below 200-day MA, and death cross. Crypto triggers a bottom signal at 2+ indicators; stocks and ETFs require 3+ (stricter threshold to avoid false signals from single dips). Volume change is computed from existing chart data — no additional API calls.
 
 Technical indicators further refine the AI's confidence — a bullish momentum signal with oversold RSI strengthens a buy case, while bearish signals or overbought RSI weaken it.
 

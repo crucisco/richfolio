@@ -198,9 +198,11 @@ INSTRUCTIONS:
    - Volume contraction > 20% (selling exhaustion)
    - Price below 200-day MA (deep value territory)
    - Death cross present (may already be priced in — contrarian signal if RSI is very low)
-   If 2+ indicators are present, set bottomSignal to a brief description (e.g. "RSI oversold + volume contraction").
-   If 3+ indicators align, strongly consider upgrading to STRONG BUY with a note about dollar-cost averaging.
-   If no bottom indicators are present, set bottomSignal to empty string.`;
+   Thresholds differ by asset type:
+   - Crypto (BTC, ETH): flag bottomSignal when 2+ indicators are present. Consider STRONG BUY upgrade when 3+ align.
+   - Stocks and ETFs: flag bottomSignal when 3+ indicators are present (stricter — avoids false signals from single dips). Consider STRONG BUY upgrade when all 4 align.
+   Set bottomSignal to a brief description (e.g. "RSI oversold + volume contraction + below 200MA").
+   If not enough indicators are present, set bottomSignal to empty string.`;
 }
 
 // ── Call Gemini ─────────────────────────────────────────────────────
