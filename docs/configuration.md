@@ -70,6 +70,20 @@ Alerts trigger only for STRONG BUY-related changes:
 
 ---
 
+## Refresh Analysis
+
+Re-analyze a single ticker with the latest price (including after-hours/pre-market). Sends email + Telegram with a new analysis URL.
+
+```bash
+npm run refresh -- SMH
+```
+
+Or trigger via GitHub Actions: **Actions → Portfolio Monitor → Run workflow** → mode: `refresh`, ticker: `SMH`.
+
+Yahoo Finance's `postMarketPrice` and `preMarketPrice` are used when available. Falls back to regular market price if after-hours data isn't available.
+
+---
+
 ## Ticker Formats
 
 | Type | Format | Examples |

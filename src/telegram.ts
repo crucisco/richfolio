@@ -3,6 +3,7 @@ import type { AIBuyRecommendation } from "./aiAnalysis.js";
 import type { NewsItem } from "./fetchNews.js";
 import type { TechnicalData } from "./fetchTechnicals.js";
 import type { IntradayAlert } from "./intradayCompare.js";
+import type { QuoteData } from "./fetchPrices.js";
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
@@ -332,4 +333,60 @@ export async function sendIntradayTelegram(
   }
 
   console.log("Intraday Telegram alert sent");
+}
+
+// ── Refresh Analysis Telegram ───────────────────────────────────────
+export async function sendRefreshTelegram(
+  ticker: string,
+  rec: AIBuyRecommendation,
+  quote: QuoteData,
+  priceSource: string
+): Promise<void> {
+  if (!BOT_TOKEN || !CHAT_ID) {
+    console.log("TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set — skipping Telegram\n");
+    return;
+  }
+
+  const time = new Date().toLocaleTimeString("en-AU", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+
+  const lines: string[] = [];
+  lines.push(`🔄 <b>Refresh Analysis</b> — ${ticker} — ${time}`);
+  lines.push("");
+  lines.push(`${actionEmoji(rec.action)} <b>${rec.action}</b> (${rec.confidence}%)`);
+  lines.push(`💰 Price: $${quote.price.toFixed(2)} (${priceSource})`);
+  lines.push(`<i>${rec.reason}</i>`);
+  if (rec.suggestedLimitPrice && rec.suggestedLimitPrice > 0) {
+    lines.push(`💡 Limit: $${rec.suggestedLimitPrice.toFixed(2)}${rec.limitPriceReason ? " — " + rec.limitPriceReason : ""}`);
+  }
+  if (rec.suggestedBuyValue > 0) {
+    lines.push(`📊 Suggested: ${fmt$(rec.suggestedBuyValue)}`);
+  }
+  if (rec.analysisUrl) {
+    lines.push(`📋 <a href="${rec.analysisUrl}">Full Analysis</a>`);
+  }
+
+  const message = lines.join("\n");
+
+  const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: CHAT_ID,
+      text: message,
+      parse_mode: "HTML",
+      disable_web_page_preview: true,
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Telegram API error (${response.status}): ${body}`);
+  }
+
+  console.log("Refresh Telegram message sent");
 }

@@ -71,6 +71,7 @@ Edit `config.json` and `.env`, then:
 npm run dev       # Daily brief (email + Telegram)
 npm run intraday  # Intraday alert check (compares vs morning)
 npm run weekly    # Weekly rebalancing report
+npm run refresh -- SMH  # Re-analyze single ticker with after-hours price
 ```
 
 </details>
@@ -133,6 +134,8 @@ config.json + .env
 Weekly mode (`--weekly`) skips news and AI, producing a focused rebalancing report.
 
 Intraday mode (`--intraday`) re-fetches prices, technicals, and AI (skipping news), compares against the morning baseline, and alerts only for STRONG BUY-related changes: upgrades to STRONG BUY, downgrades from STRONG BUY, or confidence shifts ≥10 while at STRONG BUY.
+
+Refresh mode (`--refresh TICKER`) re-analyzes a single ticker using the latest available price (including after-hours/pre-market from Yahoo Finance). Outputs updated analysis to terminal and sends email + Telegram with a new analysis URL. Useful when you see an alert after market close and want an updated limit order based on after-hours price movement.
 
 ## Updating Your Portfolio
 

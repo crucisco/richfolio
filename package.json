@@ -7,7 +7,8 @@
     "start": "tsx src/index.ts",
     "dev": "tsx src/index.ts",
     "weekly": "tsx src/index.ts --weekly",
-    "intraday": "tsx src/index.ts --intraday"
+    "intraday": "tsx src/index.ts --intraday",
+    "refresh": "tsx src/index.ts --refresh"
   },
   "repository": {
     "type": "git",

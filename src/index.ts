@@ -6,11 +6,12 @@ import type { NewsItem } from "./fetchNews.js";
 import { runAnalysis } from "./analyze.js";
 import { aiAnalyze } from "./aiAnalysis.js";
 import { sendBrief } from "./email.js";
-import { sendTelegramBrief, sendWeeklyTelegram, sendIntradayTelegram } from "./telegram.js";
+import { sendTelegramBrief, sendWeeklyTelegram, sendIntradayTelegram, sendRefreshTelegram } from "./telegram.js";
+import { getLatestPrice } from "./fetchPrices.js";
 import { sendWeeklyBrief } from "./weeklyEmail.js";
 import { saveBaseline, loadBaseline } from "./state.js";
 import { compareWithBaseline } from "./intradayCompare.js";
-import { sendIntradayAlert } from "./intradayEmail.js";
+import { sendIntradayAlert, sendRefreshEmail } from "./intradayEmail.js";
 import { fetchDetailedAnalyses } from "./detailedAnalysis.js";
 import { buildAnalysisUrl } from "./analysisUrl.js";
 
@@ -81,6 +82,9 @@ async function enrichStrongBuysWithAnalysis(
 
 const isWeekly = process.argv.includes("--weekly");
 const isIntraday = process.argv.includes("--intraday");
+const isRefresh = process.argv.includes("--refresh");
+const refreshTickerRaw = isRefresh ? process.argv[process.argv.length - 1] : null;
+const refreshTicker = refreshTickerRaw && !refreshTickerRaw.startsWith("-") ? refreshTickerRaw.toUpperCase() : null;
 
 try {
   const tickers = allUniqueTickers();
@@ -102,7 +106,69 @@ try {
     }
   }
 
-  if (isWeekly) {
+  if (isRefresh) {
+    // Refresh mode: re-analyze a single ticker with latest price (including after-hours)
+    if (!refreshTicker) {
+      console.error("Usage: npm run refresh -- <TICKER>");
+      console.error("Example: npm run refresh -- SMH");
+      process.exit(1);
+    }
+
+    if (!prices[refreshTicker]) {
+      console.error(`Ticker "${refreshTicker}" not found. Available: ${tickers.join(", ")}`);
+      process.exit(1);
+    }
+
+    console.log(`\nMode: refresh analysis for ${refreshTicker}`);
+
+    // Use after-hours/pre-market price if available
+    const quote = prices[refreshTicker];
+    const latest = getLatestPrice(quote);
+    console.log(`  Regular price: $${quote.price.toFixed(2)}`);
+    if (latest.source !== "regular") {
+      console.log(`  ${latest.source} price: $${latest.price.toFixed(2)} (using this)`);
+      quote.price = latest.price;
+    }
+
+    // Re-run analysis with updated price, fetch technicals for target only
+    const refreshReport = runAnalysis(prices);
+    const technicals = await fetchTechnicals([refreshTicker]);
+    const emptyNews: Record<string, NewsItem[]> = {};
+    const aiRecs = await aiAnalyze(refreshReport, prices, emptyNews, technicals);
+
+    const targetRec = aiRecs.find((r) => r.ticker === refreshTicker);
+    if (!targetRec) {
+      console.log(`AI did not return a recommendation for ${refreshTicker}`);
+      process.exit(0);
+    }
+
+    // Generate detailed analysis + URL
+    await enrichStrongBuysWithAnalysis(aiRecs, prices, technicals, refreshReport);
+
+    // Output results
+    console.log(`\n${"═".repeat(50)}`);
+    console.log(`${targetRec.action} ${refreshTicker} (${targetRec.confidence}% confidence)`);
+    console.log(`Price: $${quote.price.toFixed(2)} (${latest.source})`);
+    console.log(`Reason: ${targetRec.reason}`);
+    if (targetRec.suggestedLimitPrice) {
+      console.log(`Limit: $${targetRec.suggestedLimitPrice.toFixed(2)}${targetRec.limitPriceReason ? " — " + targetRec.limitPriceReason : ""}`);
+    }
+    if (targetRec.suggestedBuyValue > 0) {
+      console.log(`Suggested buy: $${targetRec.suggestedBuyValue.toFixed(0)}`);
+    }
+    if (targetRec.analysisUrl) {
+      console.log(`\nAnalysis URL:\n${targetRec.analysisUrl}`);
+    }
+    console.log("═".repeat(50));
+
+    // Send email + Telegram
+    await sendRefreshEmail(refreshTicker, targetRec, quote, latest.source);
+    try {
+      await sendRefreshTelegram(refreshTicker, targetRec, quote, latest.source);
+    } catch (err) {
+      console.error("Telegram send failed:", (err as Error).message);
+    }
+  } else if (isWeekly) {
     // Weekly mode: rebalancing report only (no news, no AI)
     console.log("\nMode: weekly rebalancing");
     await sendWeeklyBrief(report);

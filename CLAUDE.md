@@ -24,18 +24,19 @@ npm install          # Install dependencies
 npm run dev          # Run daily brief locally
 npm run intraday     # Run intraday alert check (compares vs morning)
 npm run weekly       # Run weekly rebalancing report
+npm run refresh -- SMH  # Re-analyze single ticker with after-hours price
 npm run start        # Production daily entry point
 npx tsc --noEmit     # Type-check without emitting
 ```
 
 ## Architecture
 
-Single-pipeline flow, no API server. Three modes: daily (default), intraday (`--intraday`), and weekly (`--weekly`).
+Single-pipeline flow, no API server. Four modes: daily (default), intraday (`--intraday`), weekly (`--weekly`), and refresh (`--refresh TICKER`).
 
 ```
-src/index.ts (entry point — parses --weekly/--intraday flags, wires modules)
+src/index.ts (entry point — parses --weekly/--intraday/--refresh flags, wires modules)
   → src/config.ts          # Loads config.json + .env, exports typed portfolio data + intradayConfig
-  → src/fetchPrices.ts     # Yahoo Finance: price, P/E, avgPE, 52w, beta, dividends, ETF top holdings, fundamentals (ROE, debt, FCF)
+  → src/fetchPrices.ts     # Yahoo Finance: price, P/E, avgPE, 52w, beta, dividends, ETF top holdings, fundamentals, after-hours prices
   → src/fetchTechnicals.ts # Yahoo Finance chart: SMA50, SMA200, RSI(14), momentum, support levels, volume change
   → src/fetchNews.ts       # NewsAPI: top 3 headlines per ticker (daily only)
   → src/analyze.ts         # Allocation gaps, P/E signals, ETF overlap discounts, portfolio beta, dividend estimate
@@ -43,9 +44,9 @@ src/index.ts (entry point — parses --weekly/--intraday flags, wires modules)
   → src/state.ts           # Save/load morning baseline for intraday comparison
   → src/intradayCompare.ts # Compare current AI recs vs morning baseline, alert on STRONG BUY changes
   → src/email.ts           # Daily dark-themed HTML email + Resend
-  → src/intradayEmail.ts   # Intraday alert email (focused, only triggered tickers)
+  → src/intradayEmail.ts   # Intraday + refresh alert emails + Resend
   → src/weeklyEmail.ts     # Weekly rebalancing HTML email + Resend
-  → src/telegram.ts        # Telegram delivery (daily + intraday + weekly message builders)
+  → src/telegram.ts        # Telegram delivery (daily + intraday + weekly + refresh message builders)
 ```
 
 ## Config Architecture
@@ -90,3 +91,5 @@ In GitHub Actions, `config.json` is written from the `CONFIG_JSON` Actions varia
 - **Value investing framework**: AI rates stocks A-D based on ROE, debt/equity, FCF, earnings growth, analyst target. Data from Yahoo `financialData` module (same API call). ETFs and crypto get no rating
 - **Crypto bottom-fishing model**: AI checks RSI<30, volume contraction, price below 200MA, death cross for BTC/ETH. 2+ indicators triggers a bottom signal. Volume change computed from existing chart data
 - **Fundamentals data**: `financialData` module added to existing `quoteSummary` call — zero extra API overhead. Returns null for ETFs and crypto
+- **After-hours prices**: Yahoo `price` module returns `postMarketPrice` and `preMarketPrice`. Only used in refresh mode via `getLatestPrice()` — daily/intraday modes use `regularMarketPrice`. Fields may be null outside trading windows
+- **Refresh mode**: Re-analyzes a single ticker with after-hours price. Sends email + Telegram with new analysis URL. Triggered via `npm run refresh -- TICKER` or GitHub Actions workflow_dispatch

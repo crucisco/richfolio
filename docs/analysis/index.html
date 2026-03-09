@@ -271,6 +271,15 @@ function tvSymbol(ticker) {
   return ticker;
 }
 
+// ── Copy command to clipboard ────────────────────────────────────────
+function copyCmd(el) {
+  const cmd = el.querySelector('span').textContent;
+  navigator.clipboard.writeText(cmd).then(() => {
+    const hint = el.querySelector('.copy-hint');
+    if (hint) { hint.textContent = 'Copied!'; setTimeout(() => hint.textContent = 'Click to copy', 2000); }
+  });
+}
+
 // ── Render ───────────────────────────────────────────────────────────
 function render(d) {
   document.title = `${d.ticker} — STRONG BUY Analysis | Richfolio`;
@@ -415,6 +424,19 @@ function render(d) {
       <div style="text-align:center;font-size:12px;color:var(--muted);margin-top:6px;">Current: $${Number(d.price).toFixed(2)} (${fmtPct(d.fiftyTwoWeekPercent)} from low)</div>
     </div>`;
   }
+
+  // Refresh Analysis
+  html += `
+  <div class="card">
+    <div class="card-title">Refresh Analysis</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">
+      Re-run analysis with the latest price (including after-hours/pre-market):
+    </p>
+    <div style="background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:6px;padding:12px;font-family:monospace;font-size:14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="copyCmd(this)">
+      <span>npm run refresh -- ${d.ticker}</span>
+      <span style="font-size:11px;color:var(--muted);" class="copy-hint">Click to copy</span>
+    </div>
+  </div>`;
 
   // Footer
   html += `

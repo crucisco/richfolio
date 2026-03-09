@@ -1,6 +1,8 @@
 import { Resend } from "resend";
 import { recipientEmail } from "./config.js";
 import type { IntradayAlert } from "./intradayCompare.js";
+import type { AIBuyRecommendation } from "./aiAnalysis.js";
+import type { QuoteData } from "./fetchPrices.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -155,4 +157,67 @@ export async function sendIntradayAlert(
   }
 
   console.log(`Intraday alert email sent to ${recipientEmail}`);
+}
+
+// ── Refresh Analysis Email ──────────────────────────────────────────
+export async function sendRefreshEmail(
+  ticker: string,
+  rec: AIBuyRecommendation,
+  quote: QuoteData,
+  priceSource: string
+): Promise<void> {
+  const time = new Date().toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit", hour12: true });
+  const date = new Date().toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "short", year: "numeric" });
+
+  const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:${S.bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:${S.text};font-size:14px;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;margin:0 auto;padding:20px;">
+
+<!-- Header -->
+<tr><td style="padding:20px 24px;background:${S.accent};border-radius:8px 8px 0 0;">
+  <h1 style="margin:0;font-size:20px;color:${S.blue};">Refresh Analysis — ${ticker}</h1>
+  <p style="margin:6px 0 0;color:${S.muted};font-size:13px;">${date} at ${time}</p>
+  <p style="margin:4px 0 0;color:${S.text};font-size:12px;">Updated with ${priceSource} price</p>
+</td></tr>
+
+<!-- Content -->
+<tr><td style="padding:16px 24px;background:${S.cardBg};">
+  <div style="margin-bottom:10px;">
+    <span style="font-weight:bold;font-size:18px;color:#fff;">${ticker}</span>
+    &nbsp;${actionBadge(rec.action)}${rec.valueRating ? valueRatingBadge(rec.valueRating) : ""}
+  </div>
+  <div style="font-size:13px;color:#fff;margin-bottom:6px;">Confidence: <strong>${rec.confidence}%</strong></div>
+  <div style="font-size:13px;color:#fff;margin-bottom:8px;">Price: <strong>$${quote.price.toFixed(2)}</strong> <span style="color:${S.muted};">(${priceSource})</span></div>
+  <div style="font-size:12px;color:${S.text};margin-bottom:10px;">${rec.reason}</div>
+  ${rec.suggestedBuyValue > 0 ? `<div style="font-size:13px;font-weight:bold;color:#fff;margin-bottom:4px;">Suggested: ${fmt$(rec.suggestedBuyValue)}</div>` : ""}
+  ${rec.suggestedLimitPrice && rec.suggestedLimitPrice > 0 ? `<div style="font-size:12px;color:${S.green};margin-bottom:4px;">Limit order: $${rec.suggestedLimitPrice.toFixed(2)}${rec.limitPriceReason ? ` — ${rec.limitPriceReason}` : ""}</div>` : ""}
+  ${rec.bottomSignal ? `<div style="font-size:11px;color:${S.yellow};margin-bottom:4px;">Bottom signal: ${rec.bottomSignal}</div>` : ""}
+  ${rec.analysisUrl ? `<div style="margin-top:12px;"><a href="${rec.analysisUrl}" style="display:inline-block;background:#3498db22;color:#3498db;padding:6px 16px;border-radius:4px;font-size:12px;font-weight:bold;text-decoration:none;border:1px solid #3498db44;">Full Analysis &rarr;</a></div>` : ""}
+</td></tr>
+
+<!-- Footer -->
+<tr><td style="padding:12px 24px;background:${S.accent};border-radius:0 0 8px 8px;text-align:center;">
+  <p style="margin:0;font-size:11px;color:${S.muted};">
+    Refresh analysis · Powered by Richfolio
+  </p>
+</td></tr>
+
+</table>
+</body>
+</html>`;
+
+  const { error } = await resend.emails.send({
+    from: "Richfolio <onboarding@resend.dev>",
+    to: recipientEmail,
+    subject: `Richfolio Refresh: ${rec.action} ${ticker} (${rec.confidence}%)`,
+    html,
+  });
+
+  if (error) {
+    throw new Error(`Resend error: ${JSON.stringify(error)}`);
+  }
+
+  console.log(`Refresh email sent to ${recipientEmail}`);
 }
