@@ -1,11 +1,14 @@
+import { GoogleGenAI, Type } from "@google/genai";
 import { toYahooTicker } from "./config.js";
 
 const NEWS_API_KEY = process.env.NEWS_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const NEWS_API_BASE = "https://newsapi.org/v2/everything";
 const MAX_ARTICLES_PER_TICKER = 3;
 const BATCH_SIZE = 5; // tickers per request — keeps OR queries manageable
 
 // Company/ETF names for better article matching (tickers alone miss many hits)
+// Use specific financial phrases to avoid false positives (e.g. "bond" matching animal articles)
 const TICKER_NAMES: Record<string, string[]> = {
   AAPL: ["Apple"],
   AMZN: ["Amazon"],
@@ -15,17 +18,17 @@ const TICKER_NAMES: Record<string, string[]> = {
   BIPC: ["Brookfield Infrastructure"],
   VOO: ["S&P 500", "S&P500"],
   QQQ: ["Nasdaq", "NASDAQ"],
-  SMH: ["semiconductor"],
-  XLU: ["utilities"],
-  XLV: ["healthcare"],
-  ITA: ["defense", "aerospace"],
-  GLD: ["gold"],
+  SMH: ["semiconductor ETF", "chip stocks", "semiconductor index"],
+  XLU: ["utilities ETF", "utility stocks"],
+  XLV: ["healthcare ETF", "health stocks"],
+  ITA: ["defense ETF", "aerospace ETF", "defense stocks"],
+  GLD: ["gold price", "gold ETF", "gold futures"],
   BTC: ["Bitcoin"],
   ETH: ["Ethereum"],
-  BSV: ["bond", "treasury"],
-  ESGU: ["ESG"],
-  IJH: ["mid-cap", "midcap"],
-  AIQ: ["artificial intelligence", " AI "],
+  BSV: ["bond ETF", "bond market", "treasury bond", "short-term bond", "fixed income", "Vanguard bond"],
+  ESGU: ["ESG investing", "ESG fund"],
+  IJH: ["mid-cap ETF", "midcap stocks", "S&P MidCap"],
+  AIQ: ["artificial intelligence ETF", "AI stocks"],
 };
 
 // ── Types ───────────────────────────────────────────────────────────
@@ -90,6 +93,9 @@ async function fetchBatch(
   }
 
   for (const article of data.articles) {
+    // Skip non-English articles (NewsAPI language filter isn't perfect)
+    if (/[\u3000-\u9FFF\uAC00-\uD7AF\u0600-\u06FF]/.test(article.title)) continue;
+
     const titleUpper = article.title.toUpperCase();
     for (const ticker of tickers) {
       if (result[ticker].length >= MAX_ARTICLES_PER_TICKER) continue;
@@ -113,6 +119,99 @@ async function fetchBatch(
   }
 
   return result;
+}
+
+// ── Gemini relevance filter ─────────────────────────────────────────
+// Sends all ticker→headline pairs in one call, returns only relevant ones.
+// Costs ~1000-2000 tokens (titles only) — negligible on free tier.
+const relevanceSchema = {
+  type: Type.ARRAY,
+  items: {
+    type: Type.OBJECT,
+    properties: {
+      ticker: { type: Type.STRING },
+      relevantIndices: {
+        type: Type.ARRAY,
+        items: { type: Type.NUMBER },
+        description: "0-based indices of articles that are relevant to this ticker's financial context",
+      },
+    },
+  },
+};
+
+async function filterNewsWithGemini(
+  allNews: Record<string, NewsItem[]>
+): Promise<Record<string, NewsItem[]>> {
+  if (!GEMINI_API_KEY) return allNews;
+
+  // Build a compact list of ticker → headlines for the prompt
+  const entries: { ticker: string; headlines: string[] }[] = [];
+  for (const [ticker, articles] of Object.entries(allNews)) {
+    if (articles.length === 0) continue;
+    entries.push({
+      ticker,
+      headlines: articles.map((a) => `${a.title} — ${a.source}`),
+    });
+  }
+  if (entries.length === 0) return allNews;
+
+  const prompt = `You are a financial news relevance filter for an investment portfolio tracker. For each ticker below, determine which headlines are actually about the company/fund's financial context: stock performance, earnings, market analysis, sector trends, company strategy, M&A, regulatory impact, or macroeconomic effects on the ticker.
+
+REMOVE headlines that are:
+- Shopping/product/deal articles (e.g. "best deals on Amazon", "Dutch ovens under $50 on Amazon" — these are about the marketplace, not the stock)
+- Lifestyle, food, fashion, or consumer product reviews that merely mention a brand/platform
+- Animal, science, sports, or entertainment articles where the keyword match is coincidental (e.g. "bond" matching animal bonding, not bond markets)
+- Ads, sponsored content, or affiliate/deal roundups
+- Non-English articles that slipped through filters
+
+KEEP only headlines about: stock price, earnings, revenue, analyst ratings, market trends, company leadership, regulatory news, sector performance, fund flows, or economic indicators relevant to the ticker.
+
+Tickers and their matched headlines:
+${entries.map((e) => `${e.ticker}:\n${e.headlines.map((h, i) => `  [${i}] ${h}`).join("\n")}`).join("\n\n")}
+
+Return each ticker with the indices of headlines that ARE financially relevant. If none are relevant, return an empty array for that ticker.`;
+
+  try {
+    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: relevanceSchema,
+      },
+    });
+
+    const filtered = JSON.parse(response.text!) as Array<{
+      ticker: string;
+      relevantIndices: number[];
+    }>;
+
+    const result: Record<string, NewsItem[]> = {};
+    // Start with empty arrays for all tickers
+    for (const ticker of Object.keys(allNews)) {
+      result[ticker] = [];
+    }
+    // Keep only Gemini-approved articles
+    for (const { ticker, relevantIndices } of filtered) {
+      const original = allNews[ticker];
+      if (!original) continue;
+      result[ticker] = relevantIndices
+        .filter((i) => i >= 0 && i < original.length)
+        .map((i) => original[i]);
+    }
+
+    const before = Object.values(allNews).reduce((s, a) => s + a.length, 0);
+    const after = Object.values(result).reduce((s, a) => s + a.length, 0);
+    if (before !== after) {
+      console.log(`  Gemini filter: ${before} → ${after} articles (removed ${before - after} irrelevant)`);
+    }
+
+    return result;
+  } catch (err) {
+    console.warn(`  ⚠ Gemini news filter failed, using unfiltered results: ${(err as Error).message}`);
+    return allNews;
+  }
 }
 
 // ── Fetch news for all tickers ──────────────────────────────────────
@@ -143,6 +242,10 @@ export async function fetchNews(
   }
 
   const withNews = Object.values(allNews).filter((a) => a.length > 0).length;
-  console.log(`Found news for ${withNews}/${tickers.length} tickers\n`);
-  return allNews;
+  console.log(`Found news for ${withNews}/${tickers.length} tickers`);
+
+  // Second pass: Gemini filters out irrelevant articles (graceful fallback if unavailable)
+  const filtered = await filterNewsWithGemini(allNews);
+  console.log();
+  return filtered;
 }

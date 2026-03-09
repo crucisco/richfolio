@@ -38,7 +38,7 @@ src/index.ts (entry point — parses --weekly/--intraday/--refresh flags, wires 
   → src/config.ts          # Loads config.json + .env, exports typed portfolio data + intradayConfig
   → src/fetchPrices.ts     # Yahoo Finance: price, P/E, avgPE, 52w, beta, dividends, ETF top holdings, fundamentals, after-hours prices
   → src/fetchTechnicals.ts # Yahoo Finance chart: SMA50, SMA200, RSI(14), momentum, support levels, volume change
-  → src/fetchNews.ts       # NewsAPI: top 3 headlines per ticker (daily only)
+  → src/fetchNews.ts       # NewsAPI: top 3 headlines per ticker (daily only) + Gemini relevance filter
   → src/analyze.ts         # Allocation gaps, P/E signals, ETF overlap discounts, portfolio beta, dividend estimate
   → src/aiAnalysis.ts      # Gemini AI: buy recs + confidence + limit prices + value ratings + bottom signals
   → src/state.ts           # Save/load morning baseline for intraday comparison
@@ -80,7 +80,7 @@ In GitHub Actions, `config.json` is written from the `CONFIG_JSON` Actions varia
 - **ETFs have no P/E**: Returns null — handled gracefully throughout, show "N/A"
 - **ETF top holdings**: Yahoo returns only top 10 holdings per ETF — overlap detection uses these
 - **Dynamic avgPE**: Computed from `earningsHistory` quarterly EPS — no manual config needed
-- **NewsAPI matching**: Uses `TICKER_NAMES` map in fetchNews.ts to match company names in headlines
+- **NewsAPI matching**: Uses `TICKER_NAMES` map in fetchNews.ts to match company names in headlines. Three-layer filtering: (1) specific financial phrases in search terms to avoid generic matches, (2) regex pre-filter drops non-English articles (CJK/Korean/Arabic), (3) Gemini relevance filter removes shopping/lifestyle/coincidental matches in one cheap batch call. Gemini filter is optional — graceful fallback if key is missing
 - **Resend free tier**: Sends from `onboarding@resend.dev`, can only send to account owner email unless domain verified
 - **Telegram char limit**: 4,096 chars per message — news section is truncated if needed
 - **GitHub Actions timezone**: Cron is always UTC. 10pm UTC = 8am AEST
