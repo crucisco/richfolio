@@ -29,14 +29,17 @@ Every morning, Richfolio fetches live market data, runs allocation analysis, gen
 
 ---
 
-## Quick Start
+## Who Should Use This
 
-1. [Fork the repo](https://github.com/furic/richfolio/fork)
-2. Add your portfolio data as a GitHub Actions variable (`CONFIG_JSON`)
-3. Add your API keys as GitHub Secrets (`RESEND_API_KEY`, etc.)
-4. Enable GitHub Actions — done! You'll get daily briefs automatically.
+Richfolio **does not pick stocks for you**. You should already have your own portfolio of stocks, ETFs, or crypto that you believe in.
 
-See [Getting Started](getting-started) for the full walkthrough, or [Local Development](local-development) if you want to run it on your machine.
+What Richfolio does is **monitor your portfolio daily** and help you decide **when** to buy — tracking prices, technicals, news sentiment, and allocation gaps, then using AI to surface the best timing opportunities.
+
+- **You bring the portfolio** — set your target allocations once in a simple JSON config
+- **Richfolio brings the signals** — buy recommendations, limit order prices, and detailed analysis
+- **You make the final call** — every purchase decision is yours; the tool only suggests
+
+**No coding required.** Fork the repo, spend ~10 minutes registering free API accounts, paste your keys into GitHub Settings, and you're done. Everything runs automatically via GitHub Actions at $0/month.
 
 ---
 
@@ -46,10 +49,10 @@ See [Getting Started](getting-started) for the full walkthrough, or [Local Devel
 |------|-------------|
 | [Features](features) | What Richfolio does — all 10 capabilities explained |
 | [Getting Started](getting-started) | Fork, configure, and deploy in 4 steps |
-| [Configuration](configuration) | `config.json` field reference, ticker formats, tips |
+| [Configuration](configuration) | `CONFIG_JSON` field reference, ticker formats, tips |
 | [API Keys](api-keys) | Step-by-step setup for Resend, NewsAPI, Gemini, Telegram |
 | [Deployment](deployment) | GitHub Actions, secrets, schedule customization |
 | [How It Works](how-it-works) | Architecture, data pipeline, analysis logic |
-| [Local Development](local-development) | Run locally for testing or contributing |
+| [Local Development](local-development) | For advanced users — run locally for customization or manual triggers |
 | [Troubleshooting](troubleshooting) | Common errors and fixes |
 | [References](references) | Prior art and design influences |
