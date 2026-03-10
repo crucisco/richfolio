@@ -6,15 +6,13 @@ nav_order: 4
 
 # Configuration
 
-Richfolio uses a single `config.json` file for all portfolio data. This file is gitignored — your portfolio stays private.
+Richfolio uses a single JSON configuration for all portfolio data — your portfolio stays private.
 
 ---
 
 ## Setup
 
-**GitHub Actions:** Go to your fork's Settings → Secrets and variables → Actions → **Variables** tab → create `CONFIG_JSON` with the JSON content below.
-
-**Local development:** Run `cp config.example.json config.json` and edit the file. See [Local Development](local-development).
+Go to your fork's Settings → Secrets and variables → Actions → **Variables** tab → create a variable called `CONFIG_JSON` with the JSON content below.
 
 ## Example
 
@@ -74,9 +72,7 @@ Alerts trigger only for STRONG BUY-related changes:
 
 Re-analyze a single ticker with the latest price (including after-hours/pre-market). Sends email + Telegram with a new analysis URL.
 
-**GitHub Actions:** Actions → Portfolio Monitor → **Run workflow** → mode: `refresh`, ticker: `SMH`.
-
-**Locally:** `npm run refresh -- SMH`
+Actions → Portfolio Monitor → **Run workflow** → mode: `refresh`, ticker: `SMH`.
 
 Yahoo Finance's `postMarketPrice` and `preMarketPrice` are used when available. Falls back to regular market price if after-hours data isn't available.
 
@@ -106,7 +102,4 @@ Yahoo Finance's `postMarketPrice` and `preMarketPrice` are used when available. 
 
 ## Updating
 
-When your holdings change:
-
-- **Locally**: Edit `config.json` directly
-- **GitHub Actions**: Update the `CONFIG_JSON` variable with the new JSON content (Settings → Secrets and variables → Actions → Variables tab)
+When your holdings change, update the `CONFIG_JSON` variable with the new JSON content (Settings → Secrets and variables → Actions → Variables tab).

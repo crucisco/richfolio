@@ -6,7 +6,7 @@ nav_order: 9
 
 # Local Development
 
-Run Richfolio locally for testing, debugging, or contributing.
+For advanced users who want to customize the code, test modifications, or trigger runs manually. Most users don't need this — GitHub Actions handles everything automatically.
 
 ---
 
