@@ -8,9 +8,9 @@ nav_order: 5
 
 Richfolio uses up to 5 external services, all with generous free tiers. Only Resend and a recipient email are required — everything else is optional.
 
-```bash
-cp .env.example .env
-```
+**GitHub Actions:** Add each key as a repository Secret (Settings → Secrets and variables → Actions → **Secrets** tab). Add `RECIPIENT_EMAIL` as a **Variable** instead (easier to view/edit).
+
+**Local development:** Run `cp .env.example .env` and add your keys there. See [Local Development](local-development).
 
 ---
 
@@ -22,7 +22,7 @@ Resend delivers the HTML email reports.
 1. Go to [resend.com](https://resend.com) and sign up
 2. Navigate to **API Keys** in the dashboard
 3. Click **Create API Key**, give it a name, and copy the key
-4. Add to `.env`:
+4. Add to your `.env` file (local) or GitHub Secrets (Actions):
    ```
    RESEND_API_KEY=re_xxxxxxxxxxxx
    ```

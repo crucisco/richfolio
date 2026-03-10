@@ -12,9 +12,9 @@ Richfolio uses a single `config.json` file for all portfolio data. This file is 
 
 ## Setup
 
-```bash
-cp config.example.json config.json
-```
+**GitHub Actions:** Go to your fork's Settings → Secrets and variables → Actions → **Variables** tab → create `CONFIG_JSON` with the JSON content below.
+
+**Local development:** Run `cp config.example.json config.json` and edit the file. See [Local Development](local-development).
 
 ## Example
 
@@ -74,11 +74,9 @@ Alerts trigger only for STRONG BUY-related changes:
 
 Re-analyze a single ticker with the latest price (including after-hours/pre-market). Sends email + Telegram with a new analysis URL.
 
-```bash
-npm run refresh -- SMH
-```
+**GitHub Actions:** Actions → Portfolio Monitor → **Run workflow** → mode: `refresh`, ticker: `SMH`.
 
-Or trigger via GitHub Actions: **Actions → Portfolio Monitor → Run workflow** → mode: `refresh`, ticker: `SMH`.
+**Locally:** `npm run refresh -- SMH`
 
 Yahoo Finance's `postMarketPrice` and `preMarketPrice` are used when available. Falls back to regular market price if after-hours data isn't available.
 

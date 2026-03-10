@@ -68,13 +68,9 @@ In the meantime, Richfolio automatically falls back to gap-based recommendations
 
 **Cause:** `config.json` doesn't exist in the project root.
 
-**Fix:** Copy the example config:
-
-```bash
-cp config.example.json config.json
-```
-
-Then edit it with your portfolio data. In GitHub Actions, make sure the `CONFIG_JSON` variable (Settings → Secrets and variables → Actions → Variables tab) contains valid JSON.
+**Fix:**
+- **GitHub Actions:** Make sure the `CONFIG_JSON` variable exists with valid JSON content (Settings → Secrets and variables → Actions → **Variables** tab).
+- **Locally:** Run `cp config.example.json config.json` and edit it with your portfolio data.
 
 ---
 
@@ -82,7 +78,7 @@ Then edit it with your portfolio data. In GitHub Actions, make sure the `CONFIG_
 
 **Cause:** One or more API keys are missing or invalid.
 
-**Fix:** Check your `.env` file. The brief adapts to what's available:
+**Fix:** Check your `.env` file (local) or GitHub Secrets (Actions). The brief adapts to what's available:
 - Without `NEWS_API_KEY` → no news section
 - Without `GEMINI_API_KEY` → gap-based recommendations instead of AI
 - Without `TELEGRAM_BOT_TOKEN` → email only (no Telegram)

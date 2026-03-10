@@ -31,23 +31,12 @@ Every morning, Richfolio fetches live market data, runs allocation analysis, gen
 
 ## Quick Start
 
-```bash
-git clone https://github.com/furic/richfolio.git
-cd richfolio
-npm install
-cp config.example.json config.json
-cp .env.example .env
-```
+1. [Fork the repo](https://github.com/furic/richfolio/fork)
+2. Add your portfolio data as a GitHub Actions variable (`CONFIG_JSON`)
+3. Add your API keys as GitHub Secrets (`RESEND_API_KEY`, etc.)
+4. Enable GitHub Actions — done! You'll get daily briefs automatically.
 
-Edit `config.json` with your portfolio data and `.env` with your API keys, then:
-
-```bash
-npm run dev       # Daily brief (email + Telegram)
-npm run intraday  # Intraday alert check (compares vs morning)
-npm run weekly    # Weekly rebalancing report
-```
-
-See [Getting Started](getting-started) for full prerequisites, or jump to [API Keys](api-keys) if you just need to set up services.
+See [Getting Started](getting-started) for the full walkthrough, or [Local Development](local-development) if you want to run it on your machine.
 
 ---
 
@@ -56,10 +45,11 @@ See [Getting Started](getting-started) for full prerequisites, or jump to [API K
 | Page | Description |
 |------|-------------|
 | [Features](features) | What Richfolio does — all 10 capabilities explained |
-| [Getting Started](getting-started) | Prerequisites, installation, and first run |
+| [Getting Started](getting-started) | Fork, configure, and deploy in 4 steps |
 | [Configuration](configuration) | `config.json` field reference, ticker formats, tips |
 | [API Keys](api-keys) | Step-by-step setup for Resend, NewsAPI, Gemini, Telegram |
 | [Deployment](deployment) | GitHub Actions, secrets, schedule customization |
 | [How It Works](how-it-works) | Architecture, data pipeline, analysis logic |
+| [Local Development](local-development) | Run locally for testing or contributing |
 | [Troubleshooting](troubleshooting) | Common errors and fixes |
 | [References](references) | Prior art and design influences |
