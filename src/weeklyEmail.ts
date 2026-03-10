@@ -137,7 +137,7 @@ ${noTarget.length > 0 ? `
 <!-- Footer -->
 <tr><td style="padding:16px 24px;background:${S.accent};border-radius:0 0 8px 8px;text-align:center;">
   <p style="margin:0;font-size:11px;color:${S.muted};">
-    Edit config.json to update your portfolio · Powered by Richfolio
+    Edit CONFIG_JSON variable to update your portfolio · Powered by Richfolio
   </p>
 </td></tr>
 

@@ -157,7 +157,7 @@ An alert fires only when:
 
 Alerts are delivered via email and Telegram with a focused format showing the morning vs current comparison, price change, AI reasoning, and limit order price for STRONG BUY signals. No alert = no message — you only hear from Richfolio when it matters.
 
-All thresholds are configurable via the `intradayAlerts` section in `config.json`. See [Configuration](configuration) for details.
+All thresholds are configurable via the `intradayAlerts` section in your `CONFIG_JSON` variable. See [Configuration](configuration) for details.
 
 ![Intraday Alert](screenshots/intraday-alert.png){: style="max-width: 400px; display: block; margin: 16px auto;" }
 

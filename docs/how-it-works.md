@@ -13,7 +13,7 @@ Richfolio is a single-pipeline system — no API server, no database, no dashboa
 ## Data Pipeline
 
 ```
-config.json + .env
+CONFIG_JSON variable + GitHub Secrets
   → fetchPrices (Yahoo Finance: prices, P/E, 52w range, beta, dividends, ETF holdings, fundamentals)
   → fetchTechnicals (Yahoo Finance chart: SMA50, SMA200, RSI, momentum, volume change)
   → fetchNews (NewsAPI: top headlines per ticker)
@@ -32,7 +32,7 @@ Intraday mode (`--intraday`) re-fetches prices and technicals, re-runs AI (skipp
 
 ```
 src/
-├── config.ts          # Typed loader for config.json + .env
+├── config.ts          # Typed loader for CONFIG_JSON variable + GitHub Secrets
 ├── index.ts           # Entry point — parses --weekly/--intraday flags, wires modules
 ├── fetchPrices.ts     # Yahoo Finance via yahoo-finance2 (instance-based v3 API) + fundamentals
 ├── fetchTechnicals.ts # Yahoo Finance chart: SMA50, SMA200, RSI, momentum, volume change

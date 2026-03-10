@@ -105,7 +105,7 @@ npm run refresh -- SMH  # Re-analyze single ticker with after-hours price
 ```
 richfolio/
 ├── src/
-│   ├── config.ts          # Typed loader for config.json + .env
+│   ├── config.ts          # Typed loader for CONFIG_JSON variable + secrets
 │   ├── index.ts           # Entry point (daily/intraday/weekly mode)
 │   ├── fetchPrices.ts     # Yahoo Finance: price, P/E, 52w, beta, dividends, ETF holdings, fundamentals
 │   ├── fetchTechnicals.ts # Yahoo Finance chart: SMA50, SMA200, RSI, momentum, volume change
@@ -134,7 +134,7 @@ richfolio/
 ## How It Works
 
 ```
-config.json + .env
+CONFIG_JSON variable + GitHub Secrets
   → fetchPrices (Yahoo Finance: prices, P/E, 52w range, beta, dividends, ETF holdings, fundamentals)
   → fetchTechnicals (Yahoo Finance chart: SMA50, SMA200, RSI, momentum, volume change)
   → fetchNews (NewsAPI: top headlines per ticker)
@@ -151,7 +151,7 @@ Refresh mode (`--refresh TICKER`) re-analyzes a single ticker using the latest a
 
 ## Updating Your Portfolio
 
-Edit `config.json` and push (or update the `CONFIG_JSON` GitHub Actions variable). The next run will reflect the changes.
+Update the `CONFIG_JSON` variable in GitHub Settings (Settings → Secrets and variables → Actions → Variables tab). The next run will reflect the changes.
 
 ## References
 

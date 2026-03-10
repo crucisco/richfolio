@@ -49,7 +49,7 @@ Provides top headlines per ticker for the daily brief.
 
 1. Go to [newsapi.org](https://newsapi.org) and sign up
 2. Your API key is shown on the dashboard immediately
-3. Add to `.env`:
+3. Add as a GitHub Secret (or `.env` for local dev):
    ```
    NEWS_API_KEY=xxxxxxxxxxxxxxxxxxxx
    ```
@@ -65,7 +65,7 @@ Powers the AI buy recommendations with Gemini 2.5 Flash.
 
 1. Go to [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
 2. Click **Create API Key**, select a Google Cloud project (or create one)
-3. Copy the key and add to `.env`:
+3. Copy the key and add as a GitHub Secret (or `.env` for local dev):
    ```
    GEMINI_API_KEY=AIzaSyxxxxxxxxxxxxxxxxx
    ```
@@ -107,7 +107,7 @@ const response = await client.messages.create({
 });
 ```
 
-The prompt and JSON parsing logic stay the same — only the API call changes. Add your provider's API key to `.env` and GitHub Actions secrets.
+The prompt and JSON parsing logic stay the same — only the API call changes. Add your provider's API key as a GitHub Secret (or `.env` for local dev).
 
 ---
 
@@ -130,7 +130,7 @@ Delivers condensed summaries to your Telegram account.
 
 **Important:** Send any message to your new bot (e.g., "hi") before running Richfolio — this is required before the bot can message you.
 
-Add both to `.env`:
+Add both as GitHub Secrets (or `.env` for local dev):
 
 ```
 TELEGRAM_BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrSTUvwxYZ
