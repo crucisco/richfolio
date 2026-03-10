@@ -22,11 +22,15 @@ This creates your own copy where you can configure your portfolio and run automa
 
 Set up your target allocations and current holdings in GitHub. See [Configuration](configuration) for the full field reference.
 
+![GitHub Actions Variables](screenshots/github_actions_variables.png){: style="max-width: 500px; display: block; margin: 16px auto;" }
+
 ---
 
 ## 3. Add API Keys
 
-Add your API keys as GitHub Secrets/Variables. At minimum you need `RESEND_API_KEY` and `RECIPIENT_EMAIL`. See [API Keys](api-keys) for step-by-step instructions for each service.
+Add your API keys as GitHub Secrets. At minimum you need `RESEND_API_KEY`. See [API Keys](api-keys) for step-by-step instructions for each service.
+
+![GitHub Actions Secrets](screenshots/github_actions_secrets.png){: style="max-width: 500px; display: block; margin: 16px auto;" }
 
 ---
 

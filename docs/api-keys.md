@@ -8,9 +8,9 @@ nav_order: 5
 
 Richfolio uses up to 5 external services, all with generous free tiers. Only Resend and a recipient email are required — everything else is optional.
 
-**GitHub Actions:** Add each key as a repository Secret (Settings → Secrets and variables → Actions → **Secrets** tab). Add `RECIPIENT_EMAIL` as a **Variable** instead (easier to view/edit).
+Add each key as a repository Secret: Settings → Secrets and variables → Actions → **Secrets** tab. Add `RECIPIENT_EMAIL` as a **Variable** instead (easier to view/edit).
 
-**Local development:** Run `cp .env.example .env` and add your keys there. See [Local Development](local-development).
+![GitHub Actions Secrets](screenshots/github_actions_secrets.png){: style="max-width: 500px; display: block; margin: 16px auto;" }
 
 ---
 
