@@ -47,6 +47,38 @@ The workflow runs automatically:
 
 You can also trigger manually: repo → **Actions** → **Portfolio Monitor** → **Run workflow** → choose daily, intraday, or weekly mode.
 
+<details>
+<summary><strong>Changing the schedule or timezone</strong></summary>
+
+<br>
+
+The default schedule is set for AEST (UTC+10). To change it, edit `.github/workflows/portfolio-monitor.yml` in your fork.
+
+The file contains three cron entries — one for each mode:
+
+```yaml
+schedule:
+  - cron: "0 22 * * *"    # Daily at 10pm UTC (8am AEST)
+  - cron: "0 0,2,4,6 * * 1-5"  # Intraday checks (weekdays)
+  - cron: "0 22 * * 0"    # Weekly on Sunday 10pm UTC
+```
+
+GitHub Actions cron is **always in UTC**. To get your desired local time, convert to UTC first:
+
+| Your Local Time | UTC Cron |
+|-----------------|----------|
+| 8am AEST (UTC+10) | `0 22 * * *` (previous day) |
+| 8am EST (UTC-5) | `0 13 * * *` |
+| 8am PST (UTC-8) | `0 16 * * *` |
+| 8am GMT (UTC+0) | `0 8 * * *` |
+| 8am IST (UTC+5:30) | `0 2 * * *` (closest match) |
+| 9am JST (UTC+9) | `0 0 * * *` |
+| 8am CET (UTC+1) | `0 7 * * *` |
+
+**Tip:** Search "UTC time converter" to find the right cron value for your timezone. Only change the hour (`22` in `0 22 * * *`) — the rest controls minute, day, month, and weekday.
+
+</details>
+
 ---
 
 ## Updating Your Portfolio
@@ -68,23 +100,3 @@ git push origin main
 
 Or use GitHub's **Sync fork** button on your fork's main page.
 
----
-
-## Customizing the Schedule
-
-Edit `.github/workflows/portfolio-monitor.yml`:
-
-```yaml
-schedule:
-  - cron: "0 22 * * *"  # Daily at 10pm UTC
-```
-
-Cron is always UTC. Common timezone conversions:
-
-| Desired Local Time | UTC Cron |
-|-------------------|----------|
-| 8am AEST (UTC+10) | `0 22 * * *` (previous day) |
-| 8am EST (UTC-5) | `0 13 * * *` |
-| 8am PST (UTC-8) | `0 16 * * *` |
-| 8am GMT (UTC+0) | `0 8 * * *` |
-| 8am IST (UTC+5:30) | `0 2 * * *` (30 min offset — closest match) |
