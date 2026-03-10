@@ -6,64 +6,33 @@ nav_order: 3
 
 # Getting Started
 
-Get Richfolio running locally in under 5 minutes.
+Get Richfolio running in under 5 minutes — no coding required.
 
 ---
 
-## Prerequisites
+## 1. Fork the Repo
 
-- **Node.js 22+** — [Download](https://nodejs.org/)
-- **npm** — comes with Node.js
-- A **GitHub account** — for automated scheduling via Actions (optional for local use)
+[Fork Richfolio on GitHub](https://github.com/furic/richfolio/fork){: .btn .btn-primary }
 
----
-
-## Fork & Install
-
-**Recommended:** [Fork the repo](https://github.com/furic/richfolio/fork) first so you can use GitHub Actions for automated daily briefs, intraday alerts, and weekly reports. Then clone your fork:
-
-```bash
-git clone https://github.com/YOUR_USERNAME/richfolio.git
-cd richfolio
-npm install
-```
+This creates your own copy where you can configure your portfolio and run automated daily briefs via GitHub Actions.
 
 ---
 
-## Configure
+## 2. Configure Your Portfolio
 
-### Portfolio (`config.json`)
-
-```bash
-cp config.example.json config.json
-```
-
-Edit `config.json` with your target allocations and current holdings. See [Configuration](configuration) for the full field reference.
-
-### API Keys (`.env`)
-
-```bash
-cp .env.example .env
-```
-
-Add your API keys. At minimum you need `RESEND_API_KEY` and `RECIPIENT_EMAIL`. See [API Keys](api-keys) for step-by-step instructions for each service.
+Set up your target allocations and current holdings in GitHub. See [Configuration](configuration) for the full field reference.
 
 ---
 
-## Run
+## 3. Add API Keys
 
-```bash
-# Daily brief — prices + news + AI analysis + email + Telegram
-npm run dev
+Add your API keys as GitHub Secrets/Variables. At minimum you need `RESEND_API_KEY` and `RECIPIENT_EMAIL`. See [API Keys](api-keys) for step-by-step instructions for each service.
 
-# Intraday alert check — compares vs morning baseline
-npm run intraday
+---
 
-# Weekly rebalancing report — prices + allocation drift + email + Telegram
-npm run weekly
-```
+## 4. Deploy
 
-Check your email and Telegram for the results.
+Enable GitHub Actions to receive automated daily briefs, intraday alerts, and weekly reports. See [Deployment](deployment) for setup details.
 
 ---
 
@@ -72,3 +41,4 @@ Check your email and Telegram for the results.
 - [Configuration](configuration) — customize your portfolio allocations
 - [API Keys](api-keys) — set up Resend, NewsAPI, Gemini, and Telegram
 - [Deployment](deployment) — automate with GitHub Actions
+- [Local Development](local-development) — run locally or contribute
