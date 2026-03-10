@@ -22,7 +22,7 @@ Resend delivers the HTML email reports.
 1. Go to [resend.com](https://resend.com) and sign up
 2. Navigate to **API Keys** in the dashboard
 3. Click **Create API Key**, give it a name, and copy the key
-4. Add to your `.env` file (local) or GitHub Secrets (Actions):
+4. Add as a GitHub Secret:
    ```
    RESEND_API_KEY=re_xxxxxxxxxxxx
    ```
@@ -49,7 +49,7 @@ Provides top headlines per ticker for the daily brief.
 
 1. Go to [newsapi.org](https://newsapi.org) and sign up
 2. Your API key is shown on the dashboard immediately
-3. Add as a GitHub Secret (or `.env` for local dev):
+3. Add as a GitHub Secret:
    ```
    NEWS_API_KEY=xxxxxxxxxxxxxxxxxxxx
    ```
@@ -107,7 +107,7 @@ const response = await client.messages.create({
 });
 ```
 
-The prompt and JSON parsing logic stay the same — only the API call changes. Add your provider's API key as a GitHub Secret (or `.env` for local dev).
+The prompt and JSON parsing logic stay the same — only the API call changes. Add your provider's API key as a GitHub Secret.
 
 ---
 
@@ -130,7 +130,7 @@ Delivers condensed summaries to your Telegram account.
 
 **Important:** Send any message to your new bot (e.g., "hi") before running Richfolio — this is required before the bot can message you.
 
-Add both as GitHub Secrets (or `.env` for local dev):
+Add both as GitHub Secrets:
 
 ```
 TELEGRAM_BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrSTUvwxYZ
