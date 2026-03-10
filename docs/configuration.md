@@ -98,6 +98,35 @@ Yahoo Finance's `postMarketPrice` and `preMarketPrice` are used when available. 
 
 - **Portfolio value** uses the higher of your actual holdings value or the configured estimate. This keeps gap calculations meaningful when you're still building toward your target allocation.
 
+<details>
+<summary><strong>How many tickers can I add?</strong></summary>
+
+<br>
+
+Richfolio works best with a focused portfolio. While there's no hard-coded limit, the free-tier API quotas and digest readability set practical boundaries.
+
+**Recommended ranges:**
+
+| Range | Verdict |
+|-------|---------|
+| **10–20** | Sweet spot — focused, actionable, all free tiers comfortable |
+| **20–30** | Still good — manageable digest, well within limits |
+| **30–50** | Works technically, but the daily digest gets noisy |
+| **50+** | Not recommended (see below) |
+
+**Why 50+ tickers is not recommended:**
+
+- **NewsAPI (100 req/day)** — news is fetched in batches of 5 tickers. Running daily + intraday with 50 tickers uses ~22 calls; at 100 tickers it's ~42, leaving little room for refreshes.
+- **AI analysis quality** — Gemini produces more diluted recommendations when evaluating too many options at once.
+- **Digest readability** — email gets long and Telegram truncates at 4,096 characters. The signal-to-noise ratio drops sharply.
+- **Execution time** — each ticker requires Yahoo Finance calls for price, technicals, and fundamentals, slowing down your GitHub Actions run.
+
+Gemini free tier (250 req/day, 250K tokens/min) is generous and is unlikely to be the bottleneck — even 100 tickers only uses ~53K tokens per run. The real constraints are NewsAPI quota and information overload.
+
+**TL;DR — aim for ≤30 tickers for the best experience on all free tiers.**
+
+</details>
+
 ---
 
 ## Updating
