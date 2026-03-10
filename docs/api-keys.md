@@ -22,10 +22,7 @@ Resend delivers the HTML email reports.
 1. Go to [resend.com](https://resend.com) and sign up
 2. Navigate to **API Keys** in the dashboard
 3. Click **Create API Key**, give it a name, and copy the key
-4. Add as a GitHub Secret:
-   ```
-   RESEND_API_KEY=re_xxxxxxxxxxxx
-   ```
+4. Add as a GitHub Secret — name: `RESEND_API_KEY`, value: the key you just copied
 
 **Free tier:** 3,000 emails/month. Sends from `onboarding@resend.dev` by default. Can only send to your **account owner email** unless you verify a custom domain (Dashboard → Domains → Add Domain → add DNS records).
 
@@ -34,9 +31,7 @@ Resend delivers the HTML email reports.
 ## Recipient Email — Required
 {: .text-green-200}
 
-```
-RECIPIENT_EMAIL=you@example.com
-```
+Add as a GitHub **Variable** (not Secret): name: `RECIPIENT_EMAIL`, value: your email address.
 
 Must match your Resend account email unless you've verified a custom domain.
 
@@ -49,10 +44,7 @@ Provides top headlines per ticker for the daily brief.
 
 1. Go to [newsapi.org](https://newsapi.org) and sign up
 2. Your API key is shown on the dashboard immediately
-3. Add as a GitHub Secret:
-   ```
-   NEWS_API_KEY=xxxxxxxxxxxxxxxxxxxx
-   ```
+3. Add as a GitHub Secret — name: `NEWS_API_KEY`, value: the key from the dashboard
 
 **Free tier:** 100 requests/day. Richfolio uses ~4 requests per run via batching. Headlines from the last 24 hours only. If not set, the brief runs without news.
 
@@ -65,10 +57,7 @@ Powers the AI buy recommendations with Gemini 2.5 Flash.
 
 1. Go to [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
 2. Click **Create API Key**, select a Google Cloud project (or create one)
-3. Copy the key and add as a GitHub Secret (or `.env` for local dev):
-   ```
-   GEMINI_API_KEY=AIzaSyxxxxxxxxxxxxxxxxx
-   ```
+3. Copy the key and add as a GitHub Secret — name: `GEMINI_API_KEY`, value: the key you just copied
 
 **Free tier:** 250 requests/day, 10 requests/minute. Richfolio uses 1 request per run (plus 1 per STRONG BUY ticker for detailed analysis). New keys may take a few minutes for quota to activate (you might see 429 errors initially). If not set or quota exhausted, falls back to gap-based recommendations.
 
@@ -132,10 +121,8 @@ Delivers condensed summaries to your Telegram account.
 
 Add both as GitHub Secrets:
 
-```
-TELEGRAM_BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrSTUvwxYZ
-TELEGRAM_CHAT_ID=1234567890
-```
+- Name: `TELEGRAM_BOT_TOKEN`, value: the token from BotFather
+- Name: `TELEGRAM_CHAT_ID`, value: your numeric user ID
 
 **Notes:** If not set, the brief skips Telegram. Messages are condensed summaries (not full HTML). 4,096 character limit per message — news is truncated if needed.
 
