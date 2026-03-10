@@ -22,27 +22,18 @@ GitHub disables Actions on newly forked repos by default. Go to your fork → **
 
 ---
 
-## Add Secrets
+## Add Secrets & Variables
 
-Go to your forked repo on GitHub → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
+Go to your forked repo → **Settings** → **Secrets and variables** → **Actions**.
 
-| Secret | Value | Required |
-|--------|-------|----------|
-| `RESEND_API_KEY` | Your Resend API key | Yes |
-| `NEWS_API_KEY` | Your NewsAPI key | No |
-| `GEMINI_API_KEY` | Your Gemini API key | No |
-| `TELEGRAM_BOT_TOKEN` | Your Telegram bot token | No |
-| `TELEGRAM_CHAT_ID` | Your Telegram chat ID | No |
+1. **Secrets tab** — add your API keys (`RESEND_API_KEY` is required, others are optional). See [API Keys](api-keys) for step-by-step instructions for each service.
 
-Then switch to the **Variables** tab and add:
-
-| Variable | Value | Required |
-|----------|-------|----------|
-| `CONFIG_JSON` | Full contents of your `config.json` file | Yes |
-| `RECIPIENT_EMAIL` | Your email address | Yes |
+2. **Variables tab** — add:
+   - `CONFIG_JSON` — paste your full portfolio JSON (see [Configuration](configuration) for the format)
+   - `RECIPIENT_EMAIL` — your email address
 
 {: .important}
-> **For `CONFIG_JSON`:** Open your `config.json`, select all, copy, and paste the entire JSON content as the variable value. Using a variable (instead of a secret) lets you view and edit your portfolio config directly in the GitHub UI.
+> **For `CONFIG_JSON`:** Using a variable (instead of a secret) lets you view and edit your portfolio config directly in the GitHub UI.
 
 ---
 
