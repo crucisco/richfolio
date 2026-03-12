@@ -68,6 +68,18 @@ function valueRatingBadge(rating: string | undefined): string {
   return `<span style="background:${color}22;color:${color};padding:1px 6px;border-radius:3px;font-size:10px;font-weight:bold;margin-left:6px;">Value ${rating}</span>`;
 }
 
+function summarizeAlertDirection(alerts: IntradayAlert[]): string {
+  const hasStrengthened = alerts.some(
+    (a) => a.triggerType === "action_upgrade" || (a.triggerType === "confidence_change" && a.confidenceDelta > 0)
+  );
+  const hasWeakened = alerts.some(
+    (a) => a.triggerType === "action_downgrade" || (a.triggerType === "confidence_change" && a.confidenceDelta < 0)
+  );
+  if (hasStrengthened && hasWeakened) return "changed";
+  if (hasWeakened) return "weakened";
+  return "strengthened";
+}
+
 // ── Build HTML ──────────────────────────────────────────────────────
 export function buildIntradayEmailHtml(alerts: IntradayAlert[]): string {
   const time = new Date().toLocaleTimeString("en-AU", {
@@ -96,7 +108,7 @@ export function buildIntradayEmailHtml(alerts: IntradayAlert[]): string {
       <span style="font-size:12px;color:${S.text};">${a.morningAction} ${a.morningConfidence}%</span>
       <span style="color:${S.muted};font-size:12px;"> → </span>
       <span style="font-size:13px;font-weight:bold;color:#fff;">${a.currentAction} ${a.currentConfidence}%</span>
-      <span style="color:${S.green};font-size:12px;"> (+${a.confidenceDelta})</span>
+      <span style="color:${a.confidenceDelta >= 0 ? S.green : S.red};font-size:12px;"> (${a.confidenceDelta >= 0 ? "+" : ""}${a.confidenceDelta})</span>
     </div>
     ${priceDeltaHtml(a.priceDelta) ? `<div style="margin-bottom:6px;">${priceDeltaHtml(a.priceDelta)}</div>` : ""}
     <div style="font-size:12px;color:${S.text};margin-bottom:4px;">${a.reason}</div>
@@ -118,7 +130,7 @@ export function buildIntradayEmailHtml(alerts: IntradayAlert[]): string {
 <tr><td style="padding:20px 24px;background:${S.accent};border-radius:8px 8px 0 0;">
   <h1 style="margin:0;font-size:20px;color:${S.yellow};">Intraday Alert</h1>
   <p style="margin:6px 0 0;color:${S.muted};font-size:13px;">${date} at ${time}</p>
-  <p style="margin:4px 0 0;color:${S.text};font-size:12px;">${alerts.length} signal${alerts.length > 1 ? "s" : ""} strengthened since morning brief</p>
+  <p style="margin:4px 0 0;color:${S.text};font-size:12px;">${alerts.length} signal${alerts.length > 1 ? "s" : ""} ${summarizeAlertDirection(alerts)} since morning brief</p>
 </td></tr>
 
 <!-- Alerts -->
@@ -148,7 +160,7 @@ export async function sendIntradayAlert(
   const { error } = await resend.emails.send({
     from: "Richfolio <onboarding@resend.dev>",
     to: recipientEmail,
-    subject: `Richfolio Alert: ${tickers} signal strengthened`,
+    subject: `Richfolio Alert: ${tickers} signal ${summarizeAlertDirection(alerts)}`,
     html,
   });
 

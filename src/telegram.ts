@@ -282,7 +282,7 @@ function buildIntradayMessage(alerts: IntradayAlert[]): string {
       `${actionEmoji(alert.currentAction)} <b>${alert.currentAction} ${alert.ticker}</b> (${triggerLabel})`
     );
     lines.push(
-      `   ${alert.morningAction} ${alert.morningConfidence}% → ${alert.currentAction} ${alert.currentConfidence}% (+${alert.confidenceDelta})`
+      `   ${alert.morningAction} ${alert.morningConfidence}% → ${alert.currentAction} ${alert.currentConfidence}% (${alert.confidenceDelta >= 0 ? "+" : ""}${alert.confidenceDelta})`
     );
     if (Math.abs(alert.priceDelta) >= 0.01) {
       const dir = alert.priceDelta < 0 ? "down" : "up";
