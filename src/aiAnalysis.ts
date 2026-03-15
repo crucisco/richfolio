@@ -47,7 +47,7 @@ const responseSchema = {
       suggestedBuyValue: {
         type: Type.NUMBER,
         description:
-          "Suggested USD amount to invest in this ticker. 0 if HOLD or WAIT",
+          "USD amount to invest this time based on the calculated gap amount. For gaps ≤$5000 use full amount; for gaps >$5000 use 60-100% for high conviction or $3000-5000 first tranche for moderate. 0 if HOLD or WAIT.",
       },
       suggestedLimitPrice: {
         type: Type.NUMBER,
@@ -108,6 +108,7 @@ function buildPrompt(
       `  Dividend yield: ${item.dividendYield != null ? (item.dividendYield * 100).toFixed(2) + "%" : "N/A"}`,
       `  Beta: ${item.beta?.toFixed(2) ?? "N/A"}`,
       `  Current allocation: ${item.currentPct.toFixed(1)}% (target: ${item.targetPct.toFixed(1)}%, gap: ${item.gapPct > 0 ? "+" : ""}${item.gapPct.toFixed(1)}%)`,
+      item.suggestedBuyValue > 0 ? `  Calculated gap amount: $${item.suggestedBuyValue.toFixed(0)} (full amount needed to close allocation gap)` : null,
       item.overlapDiscount > 0 ? `  ETF overlap discount: -$${item.overlapDiscount.toFixed(0)} (${item.overlapPct.toFixed(0)}% of gap covered by held stocks)` : null,
       `  P/E signal: ${item.peSignal ?? "none"}`,
     ];
@@ -176,7 +177,10 @@ INSTRUCTIONS:
    - action: STRONG BUY (great price + needed), BUY (decent opportunity), HOLD (already near target or poor timing), WAIT (overvalued or risky right now)
    - confidence: 0-100 (how confident you are in this recommendation)
    - reason: 1-2 sentences explaining why
-   - suggestedBuyValue: realistic USD amount to invest (based on gap and portfolio size). $0 for HOLD/WAIT.
+   - suggestedBuyValue: USD amount to invest this time. Use the "Calculated gap amount" as the reference. Rules:
+     * If gap ≤ $5,000: suggest the FULL gap amount. Small positions aren't worth splitting — commit fully if the setup is good.
+     * If gap > $5,000: decide whether to buy all at once or in a tranche. For high conviction (confidence ≥ 85%, STRONG BUY), suggest at least 60-100% of the gap. For moderate conviction, suggest a first tranche of $3,000-$5,000 and note "first tranche" in the reason.
+     * $0 for HOLD/WAIT.
 5. Return only tickers with target > 0%. Sort by confidence descending (best buys first).
 6. Be concise and specific in reasons. Reference actual numbers (P/E, 52w%, gap).
 7. For ETFs with an "ETF overlap discount", the suggested buy has already been reduced. Mention the overlap when it significantly affects the recommendation.
