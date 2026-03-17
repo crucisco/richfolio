@@ -19,6 +19,18 @@ export interface TechnicalData {
   recentLow7d: number;
   recentLow30d: number;
   volumeChange7d: number | null;
+  // MACD (EMA12 - EMA26, signal = EMA9 of MACD)
+  macd: number | null;
+  macdSignal: number | null;
+  macdHistogram: number | null;       // macd - signal (positive = bullish momentum)
+  macdCrossover: "bullish" | "bearish" | null; // recent crossover direction
+  // Bollinger Bands (SMA20 ± 2σ)
+  bollUpper: number | null;
+  bollMiddle: number | null;          // SMA20
+  bollLower: number | null;
+  bollPercentB: number | null;        // 0 = at lower band, 1 = at upper band
+  bollBandwidth: number | null;       // (upper-lower)/middle — volatility measure
+  bollSqueeze: boolean;               // bandwidth in bottom 20% of 120-day range
 }
 
 // ── Computation helpers ─────────────────────────────────────────────
@@ -47,6 +59,100 @@ function computeRSI(prices: number[], period: number = 14): number | null {
   if (avgLoss === 0) return 100;
   const rs = avgGain / avgLoss;
   return Math.round((100 - 100 / (1 + rs)) * 10) / 10;
+}
+
+function computeEMA(prices: number[], period: number): number[] {
+  if (prices.length < period) return [];
+  const k = 2 / (period + 1);
+  const ema: number[] = [];
+  // Seed with SMA of first `period` values
+  let sum = 0;
+  for (let i = 0; i < period; i++) sum += prices[i];
+  ema.push(sum / period);
+  for (let i = period; i < prices.length; i++) {
+    ema.push(prices[i] * k + ema[ema.length - 1] * (1 - k));
+  }
+  return ema;
+}
+
+function computeMACD(closes: number[]): {
+  macd: number; signal: number; histogram: number;
+  crossover: "bullish" | "bearish" | null;
+} | null {
+  if (closes.length < 35) return null; // need 26 + 9 minimum
+  const ema12 = computeEMA(closes, 12);
+  const ema26 = computeEMA(closes, 26);
+  // Align: ema12 starts at index 12, ema26 at index 26 → offset = 14
+  const offset = 26 - 12; // 14
+  const macdLine: number[] = [];
+  for (let i = 0; i < ema26.length; i++) {
+    macdLine.push(ema12[i + offset] - ema26[i]);
+  }
+  if (macdLine.length < 9) return null;
+  const signalLine = computeEMA(macdLine, 9);
+  if (signalLine.length < 2) return null;
+
+  const sigOffset = macdLine.length - signalLine.length;
+  const currMACD = macdLine[macdLine.length - 1];
+  const currSignal = signalLine[signalLine.length - 1];
+  const prevMACD = macdLine[macdLine.length - 2];
+  const prevSignal = signalLine[signalLine.length - 2];
+
+  let crossover: "bullish" | "bearish" | null = null;
+  if (prevMACD <= prevSignal && currMACD > currSignal) crossover = "bullish";
+  else if (prevMACD >= prevSignal && currMACD < currSignal) crossover = "bearish";
+
+  return {
+    macd: Math.round(currMACD * 1000) / 1000,
+    signal: Math.round(currSignal * 1000) / 1000,
+    histogram: Math.round((currMACD - currSignal) * 1000) / 1000,
+    crossover,
+  };
+}
+
+function computeBollinger(closes: number[]): {
+  upper: number; middle: number; lower: number;
+  percentB: number; bandwidth: number; squeeze: boolean;
+} | null {
+  if (closes.length < 20) return null;
+  const period = 20;
+  const slice = closes.slice(-period);
+  const middle = slice.reduce((s, p) => s + p, 0) / period;
+  const variance = slice.reduce((s, p) => s + (p - middle) ** 2, 0) / period;
+  const stdDev = Math.sqrt(variance);
+  const upper = middle + 2 * stdDev;
+  const lower = middle - 2 * stdDev;
+  const currentPrice = closes[closes.length - 1];
+  const bandwidth = middle > 0 ? (upper - lower) / middle : 0;
+  const percentB = upper !== lower ? (currentPrice - lower) / (upper - lower) : 0.5;
+
+  // Squeeze detection: is current bandwidth in the bottom 20% of 120-day range?
+  let squeeze = false;
+  const lookback = Math.min(closes.length, 120);
+  if (lookback >= 40) {
+    const bandwidths: number[] = [];
+    for (let i = period; i <= lookback; i++) {
+      const s = closes.slice(closes.length - lookback + i - period, closes.length - lookback + i);
+      const m = s.reduce((sum, p) => sum + p, 0) / period;
+      const v = s.reduce((sum, p) => sum + (p - m) ** 2, 0) / period;
+      const sd = Math.sqrt(v);
+      if (m > 0) bandwidths.push((m + 2 * sd - (m - 2 * sd)) / m);
+    }
+    if (bandwidths.length > 0) {
+      const sorted = [...bandwidths].sort((a, b) => a - b);
+      const threshold = sorted[Math.floor(sorted.length * 0.2)];
+      squeeze = bandwidth <= threshold;
+    }
+  }
+
+  return {
+    upper: Math.round(upper * 100) / 100,
+    middle: Math.round(middle * 100) / 100,
+    lower: Math.round(lower * 100) / 100,
+    percentB: Math.round(percentB * 100) / 100,
+    bandwidth: Math.round(bandwidth * 1000) / 1000,
+    squeeze,
+  };
 }
 
 // ── Fetch technicals for a single ticker ────────────────────────────
@@ -122,6 +228,12 @@ async function fetchOne(ticker: string): Promise<TechnicalData | null> {
       }
     }
 
+    // MACD
+    const macdResult = computeMACD(closes);
+
+    // Bollinger Bands
+    const bollResult = computeBollinger(closes);
+
     return {
       ticker,
       sma50: Math.round(sma50 * 100) / 100,
@@ -135,6 +247,16 @@ async function fetchOne(ticker: string): Promise<TechnicalData | null> {
       recentLow7d: Math.round(recentLow7d * 100) / 100,
       recentLow30d: Math.round(recentLow30d * 100) / 100,
       volumeChange7d,
+      macd: macdResult?.macd ?? null,
+      macdSignal: macdResult?.signal ?? null,
+      macdHistogram: macdResult?.histogram ?? null,
+      macdCrossover: macdResult?.crossover ?? null,
+      bollUpper: bollResult?.upper ?? null,
+      bollMiddle: bollResult?.middle ?? null,
+      bollLower: bollResult?.lower ?? null,
+      bollPercentB: bollResult?.percentB ?? null,
+      bollBandwidth: bollResult?.bandwidth ?? null,
+      bollSqueeze: bollResult?.squeeze ?? false,
     };
   } catch (err) {
     console.error(`  ✗ ${ticker}: chart fetch failed —`, (err as Error).message);
@@ -161,6 +283,10 @@ export async function fetchTechnicals(
           ` ${data.momentumSignal}` +
           (data.goldenCross ? " ✨golden" : "") +
           (data.deathCross ? " ☠️death" : "") +
+          (data.macdCrossover ? ` MACD:${data.macdCrossover}` : "") +
+          (data.macdHistogram != null ? ` hist${data.macdHistogram > 0 ? "+" : ""}${data.macdHistogram}` : "") +
+          (data.bollPercentB != null ? ` %B=${data.bollPercentB}` : "") +
+          (data.bollSqueeze ? " 🔸squeeze" : "") +
           (data.volumeChange7d != null ? ` vol${data.volumeChange7d > 0 ? "+" : ""}${data.volumeChange7d}%` : "")
       );
     }

@@ -121,6 +121,14 @@ function buildPrompt(
       }
       lines.push(`    RSI(14): ${tech.rsi14} (>70 overbought, <30 oversold)`);
       lines.push(`    Momentum: ${tech.momentumSignal}${tech.goldenCross ? " (golden cross)" : ""}${tech.deathCross ? " (death cross)" : ""}`);
+      // MACD
+      if (tech.macd != null && tech.macdSignal != null) {
+        lines.push(`    MACD: ${tech.macd} / signal: ${tech.macdSignal} / histogram: ${tech.macdHistogram}${tech.macdCrossover ? ` (${tech.macdCrossover} crossover)` : ""}`);
+      }
+      // Bollinger Bands
+      if (tech.bollMiddle != null) {
+        lines.push(`    Bollinger Bands: $${tech.bollLower} / $${tech.bollMiddle} / $${tech.bollUpper} (%B=${tech.bollPercentB}, BW=${tech.bollBandwidth})${tech.bollSqueeze ? " (SQUEEZE — low volatility, breakout likely)" : ""}`);
+      }
       lines.push(`    7-day low: $${tech.recentLow7d}, 30-day low: $${tech.recentLow30d}`);
       if (tech.volumeChange7d != null) {
         lines.push(`    Volume change (7d vs 30d avg): ${tech.volumeChange7d > 0 ? "+" : ""}${tech.volumeChange7d}%${tech.volumeChange7d < -20 ? " (contraction)" : tech.volumeChange7d > 50 ? " (surge)" : ""}`);
@@ -185,7 +193,17 @@ INSTRUCTIONS:
 6. Be concise and specific in reasons. Reference actual numbers (P/E, 52w%, gap).
 7. For ETFs with an "ETF overlap discount", the suggested buy has already been reduced. Mention the overlap when it significantly affects the recommendation.
 8. For STRONG BUY and BUY tickers, suggest a limit order price slightly below current market. Base it on the nearest support level: 50-day MA, recent 7d/30d low, or a round number. Set suggestedLimitPrice (the price) and limitPriceReason (1 sentence explaining the level). Set both to 0/"" for HOLD/WAIT.
-9. Use technical indicators (MA, RSI, momentum) to refine confidence. A bullish momentum signal with oversold RSI strengthens a buy case. A bearish signal or overbought RSI weakens it.
+9. Use technical indicators (MA, RSI, MACD, Bollinger Bands, momentum) to refine confidence:
+   - A bullish momentum signal with oversold RSI strengthens a buy case. A bearish signal or overbought RSI weakens it.
+   - MACD: A bullish crossover (MACD crosses above signal) confirms upward momentum. A positive and rising histogram strengthens conviction. A bearish crossover is a caution signal.
+   - Bollinger Bands: %B near 0 (at lower band) suggests oversold/mean-reversion opportunity. %B near 1 (at upper band) suggests overbought. A squeeze (low bandwidth) signals an imminent breakout — wait for direction confirmation from MACD before acting.
+   INDICATOR CONFLICT RESOLUTION (follow this hierarchy when indicators disagree):
+   a) MACD is best for TRENDING markets — trust it over Bollinger Bands when price is clearly trending (above/below both MAs, strong momentum).
+   b) Bollinger Bands are best for RANGE-BOUND markets — trust them over MACD when price is oscillating between bands with no clear trend (flat MAs, neutral momentum).
+   c) When MACD says bullish but Bollinger %B > 0.9 (near upper band): reduce confidence by 5-10pts — momentum may be overextended. Prefer a limit order near the middle band.
+   d) When Bollinger %B < 0.1 (near lower band) but MACD histogram is still falling: do NOT buy the dip yet — wait for MACD histogram to flatten or turn up. Reduce confidence by 10pts.
+   e) When both MACD and Bollinger agree (e.g., bullish crossover + bounce off lower band, or bearish crossover + rejection at upper band): boost confidence by 5-10pts — high-conviction signal.
+   f) A Bollinger Squeeze with a simultaneous MACD crossover is the strongest entry signal — boost confidence by 10-15pts.
 10. VALUE INVESTING FRAMEWORK (individual stocks only — skip for ETFs and crypto):
    Rate each stock A through D based on these criteria:
    - ROE > 15% (strong profitability)

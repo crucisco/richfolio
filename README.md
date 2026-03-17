@@ -43,7 +43,7 @@ What Richfolio does is **monitor your portfolio daily** and help you decide **wh
 - **AI Buy Recommendations** — Gemini-powered analysis considering valuation, allocation gap, news sentiment, technicals, and risk (with gap-based fallback). STRONG BUY tickers get a **"More Details"** link to a dedicated analysis page with interactive chart, buy thesis, risk analysis, and full metrics
 - **Value Investing Framework** — AI rates individual stocks A–D based on ROE, debt/equity, FCF, earnings growth, and analyst targets (data from Yahoo Finance, zero extra API calls)
 - **Bottom-Fishing Model** — AI detects oversold/accumulation zones for all tickers using RSI, volume contraction, 200MA position, and death cross signals
-- **Technical Momentum Signals** — SMA50, SMA200, RSI(14), golden/death cross, and momentum classification (bullish/bearish/neutral) for each ticker
+- **Technical Momentum Signals** — SMA50, SMA200, RSI(14), MACD (crossover + histogram), Bollinger Bands (%B + squeeze detection), golden/death cross, and momentum classification for each ticker
 - **Limit Order Prices** — AI-suggested limit order prices based on nearby support levels (moving averages, recent lows, round numbers)
 - **Allocation Gap Analysis** — current vs target %, flagged by priority with suggested buy amounts
 - **Dynamic P/E Signals** — trailing P/E compared against historical averages fetched from Yahoo Finance (no manual benchmarks needed)
@@ -108,7 +108,7 @@ richfolio/
 │   ├── config.ts          # Typed loader for CONFIG_JSON variable + secrets
 │   ├── index.ts           # Entry point (daily/intraday/weekly mode)
 │   ├── fetchPrices.ts     # Yahoo Finance: price, P/E, 52w, beta, dividends, ETF holdings, fundamentals
-│   ├── fetchTechnicals.ts # Yahoo Finance chart: SMA50, SMA200, RSI, momentum, volume change
+│   ├── fetchTechnicals.ts # Yahoo Finance chart: SMA50, SMA200, RSI, MACD, Bollinger Bands, momentum, volume change
 │   ├── fetchNews.ts       # NewsAPI: headlines per ticker
 │   ├── analyze.ts         # Allocation gaps, P/E signals, overlap discounts
 │   ├── aiAnalysis.ts      # Gemini AI: buy recs, limit prices, value ratings, bottom signals
@@ -136,7 +136,7 @@ richfolio/
 ```
 CONFIG_JSON variable + GitHub Secrets
   → fetchPrices (Yahoo Finance: prices, P/E, 52w range, beta, dividends, ETF holdings, fundamentals)
-  → fetchTechnicals (Yahoo Finance chart: SMA50, SMA200, RSI, momentum, volume change)
+  → fetchTechnicals (Yahoo Finance chart: SMA50, SMA200, RSI, MACD, Bollinger Bands, momentum, volume change)
   → fetchNews (NewsAPI: top headlines per ticker)
   → analyze (allocation gaps, P/E signals, overlap discounts, portfolio metrics)
   → aiAnalyze (Gemini: buy recs + confidence + limit prices + value ratings + bottom signals)

@@ -29,11 +29,15 @@ Richfolio fetches 250 days of historical price data via Yahoo Finance and comput
 
 - **SMA50 / SMA200** — 50-day and 200-day simple moving averages, with current price position relative to each
 - **RSI(14)** — 14-day Relative Strength Index (below 30 = oversold, above 70 = overbought)
+- **MACD** — Moving Average Convergence Divergence (EMA12 − EMA26, signal line = EMA9 of MACD). Detects momentum shifts via crossovers (bullish/bearish) and histogram direction. Best for trending markets
+- **Bollinger Bands** — SMA(20) ± 2 standard deviations. Tracks %B (position within bands: 0 = at lower, 1 = at upper), bandwidth (volatility), and **squeeze detection** (bandwidth in bottom 20% of 120-day range signals an imminent breakout). Best for range-bound markets
 - **Golden / Death Cross** — SMA50 crossing above (bullish) or below (bearish) SMA200
 - **Momentum Signal** — classified as **bullish**, **bearish**, or **neutral** based on price vs MAs and RSI
 - **Recent Lows** — 7-day and 30-day lows for identifying nearby support levels
 
-All technical data — including volume change (7-day vs 30-day average) — feeds into the AI prompt for better-informed recommendations. For **STRONG BUY** tickers, momentum details are shown directly in the email and Telegram message.
+The AI prompt includes explicit **conflict resolution rules** when MACD and Bollinger Bands disagree: MACD is trusted in trending markets, Bollinger Bands in range-bound markets. When both agree, confidence is boosted. A Bollinger Squeeze with a simultaneous MACD crossover is treated as the strongest entry signal.
+
+All technical data — including volume change (7-day vs 30-day average) — feeds into the AI prompt for better-informed recommendations. For **STRONG BUY** tickers, momentum details (including MACD crossover/histogram, %B, and squeeze status) are shown directly in the email and Telegram message.
 
 ---
 

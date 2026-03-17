@@ -68,7 +68,10 @@ function buildMessage(
           const tech = technicals[rec.ticker];
           if (tech) {
             lines.push(
-              `   📈 ${tech.momentumSignal} · RSI ${tech.rsi14} · 50MA $${tech.sma50} (${tech.priceVsSma50 > 0 ? "+" : ""}${tech.priceVsSma50}%)`
+              `   📈 ${tech.momentumSignal} · RSI ${tech.rsi14} · 50MA $${tech.sma50} (${tech.priceVsSma50 > 0 ? "+" : ""}${tech.priceVsSma50}%)` +
+              (tech.macdCrossover ? ` · MACD ${tech.macdCrossover}` : tech.macdHistogram != null ? ` · MACD hist ${tech.macdHistogram > 0 ? "+" : ""}${tech.macdHistogram}` : "") +
+              (tech.bollPercentB != null ? ` · %B ${tech.bollPercentB}` : "") +
+              (tech.bollSqueeze ? " · 🔸squeeze" : "")
             );
           }
           if (rec.suggestedLimitPrice && rec.suggestedLimitPrice > 0) {

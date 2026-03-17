@@ -101,6 +101,18 @@ function buildTechnicalInsight(rec: AIBuyRecommendation, tech: TechnicalData | u
     }
     if (tech.goldenCross) lines.push(`<span style="color:${S.green};">golden cross</span>`);
     if (tech.deathCross) lines.push(`<span style="color:${S.red};">death cross</span>`);
+    if (tech.macdCrossover) {
+      const macdColor = tech.macdCrossover === "bullish" ? S.green : S.red;
+      lines.push(`MACD <span style="color:${macdColor};">${tech.macdCrossover}</span>`);
+    } else if (tech.macdHistogram != null) {
+      const histColor = tech.macdHistogram > 0 ? S.green : S.red;
+      lines.push(`MACD hist <span style="color:${histColor};">${tech.macdHistogram > 0 ? "+" : ""}${tech.macdHistogram}</span>`);
+    }
+    if (tech.bollPercentB != null) {
+      const bColor = tech.bollPercentB < 0.2 ? S.green : tech.bollPercentB > 0.8 ? S.red : S.muted;
+      lines.push(`%B <span style="color:${bColor};">${tech.bollPercentB}</span>`);
+    }
+    if (tech.bollSqueeze) lines.push(`<span style="color:${S.yellow};">squeeze</span>`);
 
     html += `<span style="color:${S.blue};">Momentum:</span> ${lines.join(" · ")}`;
   }

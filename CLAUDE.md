@@ -37,7 +37,7 @@ Single-pipeline flow, no API server. Four modes: daily (default), intraday (`--i
 src/index.ts (entry point — parses --weekly/--intraday/--refresh flags, wires modules)
   → src/config.ts          # Loads config.json + .env, exports typed portfolio data + intradayConfig
   → src/fetchPrices.ts     # Yahoo Finance: price, P/E, avgPE, 52w, beta, dividends, ETF top holdings, fundamentals, after-hours prices
-  → src/fetchTechnicals.ts # Yahoo Finance chart: SMA50, SMA200, RSI(14), momentum, support levels, volume change
+  → src/fetchTechnicals.ts # Yahoo Finance chart: SMA50, SMA200, RSI(14), MACD, Bollinger Bands, momentum, support levels, volume change
   → src/fetchNews.ts       # NewsAPI: top 3 headlines per ticker (daily only) + Gemini relevance filter
   → src/analyze.ts         # Allocation gaps, P/E signals, ETF overlap discounts, portfolio beta, dividend estimate
   → src/aiAnalysis.ts      # Gemini AI: buy recs + confidence + limit prices + value ratings + bottom signals
@@ -85,8 +85,11 @@ In GitHub Actions, `config.json` is written from the `CONFIG_JSON` Actions varia
 - **Telegram char limit**: 4,096 chars per message — news section is truncated if needed
 - **GitHub Actions timezone**: Cron is always UTC. 10pm UTC = 8am AEST
 - **Gemini quota**: New API keys may take minutes to activate. Graceful fallback to gap-based recommendations
-- **Technical data**: Fetched via `yahooFinance.chart()` with 365-day lookback. Tickers with <50 data points are skipped. SMA200 is null if <200 data points
+- **Technical data**: Fetched via `yahooFinance.chart()` with 365-day lookback. Tickers with <50 data points are skipped. SMA200 is null if <200 data points. MACD needs 35+ data points; Bollinger Bands need 20+
 - **Technicals display**: Only shown for STRONG BUY tickers in email/Telegram to avoid info overload. AI receives technicals for all tickers
+- **MACD**: EMA(12) − EMA(26), signal line = EMA(9) of MACD, histogram = MACD − signal. Bullish/bearish crossover detected from last 2 days. Best for trending markets
+- **Bollinger Bands**: SMA(20) ± 2σ. %B = position within bands (0=lower, 1=upper). Bandwidth = (upper−lower)/middle. Squeeze = bandwidth in bottom 20% of 120-day range (signals imminent breakout). Best for range-bound markets
+- **Indicator conflict resolution**: AI prompt includes explicit hierarchy — MACD trusted in trending markets, Bollinger in range-bound. Both agreeing boosts confidence; disagreements reduce it. Squeeze + MACD crossover = strongest signal
 - **Limit order prices**: Suggested by AI based on nearest support (50MA, 30d low, round numbers). Shown for STRONG BUY in daily, intraday, and Telegram
 - **Value investing framework**: AI rates stocks A-D based on ROE, debt/equity, FCF, earnings growth, analyst target. Data from Yahoo `financialData` module (same API call). ETFs and crypto get no rating
 - **Bottom-fishing model**: AI checks RSI<30, volume contraction, price below 200MA, death cross for all tickers (stocks, ETFs, crypto). 2+ indicators triggers a bottom signal. Volume change computed from existing chart data

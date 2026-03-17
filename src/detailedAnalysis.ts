@@ -57,7 +57,7 @@ function buildDetailedPrompt(
   ];
 
   if (tech) {
-    lines.push(`Technical: ${tech.momentumSignal} momentum, RSI ${tech.rsi14}, 50MA $${tech.sma50} (${tech.priceVsSma50 > 0 ? "+" : ""}${tech.priceVsSma50}%)${tech.sma200 != null ? `, 200MA $${tech.sma200}` : ""}${tech.goldenCross ? " (golden cross)" : ""}${tech.deathCross ? " (death cross)" : ""}`);
+    lines.push(`Technical: ${tech.momentumSignal} momentum, RSI ${tech.rsi14}, 50MA $${tech.sma50} (${tech.priceVsSma50 > 0 ? "+" : ""}${tech.priceVsSma50}%)${tech.sma200 != null ? `, 200MA $${tech.sma200}` : ""}${tech.goldenCross ? " (golden cross)" : ""}${tech.deathCross ? " (death cross)" : ""}${tech.macdCrossover ? `, MACD ${tech.macdCrossover}` : tech.macdHistogram != null ? `, MACD hist ${tech.macdHistogram > 0 ? "+" : ""}${tech.macdHistogram}` : ""}${tech.bollPercentB != null ? `, %B=${tech.bollPercentB}` : ""}${tech.bollSqueeze ? " (squeeze)" : ""}`);
   }
 
   if (quote.returnOnEquity != null || quote.debtToEquity != null) {
