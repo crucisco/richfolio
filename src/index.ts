@@ -229,6 +229,15 @@ try {
       } catch (err) {
         console.error("Telegram send failed:", (err as Error).message);
       }
+
+      // Update baseline so next intraday check compares against post-alert state
+      saveBaseline({
+        timestamp: new Date().toISOString(),
+        date: new Date().toISOString().slice(0, 10),
+        recommendations: aiRecs,
+        prices: priceMap,
+      });
+      console.log("Baseline updated after alert — next check will use current values");
     }
   } else {
     // Daily mode: full brief with news + AI + technicals
