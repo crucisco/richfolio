@@ -182,8 +182,18 @@ INSTRUCTIONS:
 2. Prioritize tickers that have BOTH allocation need AND good entry price. A small gap with excellent valuation (low P/E, near 52w low) should rank ABOVE a large gap with poor valuation (high P/E, near 52w high).
 3. Consider news sentiment — negative news may mean a buying opportunity (contrarian) or genuine risk.
 4. For each ticker, assign:
-   - action: STRONG BUY (great price + needed), BUY (decent opportunity), HOLD (already near target or poor timing), WAIT (overvalued or risky right now)
+   - action: STRONG BUY, BUY, HOLD, or WAIT (see strict criteria below)
    - confidence: 0-100 (how confident you are in this recommendation)
+   STRONG BUY CRITERIA (ALL must be met — this is the highest bar, reserve for truly exceptional setups):
+   a) Allocation gap ≥ 2% (meaningful underweight — small gaps don't justify urgency)
+   b) Confidence ≥ 80% BEFORE any indicator boosts (the raw setup must be strong on its own)
+   c) At least 2 of these entry signals: P/E below historical average, within 30% of 52-week low, RSI < 35, bullish MACD crossover, price near/below lower Bollinger Band
+   d) No major red flags (bearish MACD divergence + overbought RSI together = disqualify)
+   If ANY criterion is not met, cap at BUY. Most tickers most days should be HOLD or WAIT.
+   BUY: Decent opportunity — has allocation need and reasonable entry, but missing one or more STRONG BUY criteria.
+   HOLD: Near target allocation, or entry timing is poor (overbought, near highs).
+   WAIT: Overvalued, risky, or no allocation need.
+   MAXIMUM: At most 2 tickers can be STRONG BUY at any time. If more qualify, keep only the top 2 by conviction and downgrade the rest to BUY.
    - reason: 1-2 sentences explaining why
    - suggestedBuyValue: USD amount to invest this time. Use the "Calculated gap amount" as the reference. Rules:
      * If gap ≤ $5,000: suggest the FULL gap amount. Small positions aren't worth splitting — commit fully if the setup is good.
@@ -200,10 +210,10 @@ INSTRUCTIONS:
    INDICATOR CONFLICT RESOLUTION (follow this hierarchy when indicators disagree):
    a) MACD is best for TRENDING markets — trust it over Bollinger Bands when price is clearly trending (above/below both MAs, strong momentum).
    b) Bollinger Bands are best for RANGE-BOUND markets — trust them over MACD when price is oscillating between bands with no clear trend (flat MAs, neutral momentum).
-   c) When MACD says bullish but Bollinger %B > 0.9 (near upper band): reduce confidence by 5-10pts — momentum may be overextended. Prefer a limit order near the middle band.
-   d) When Bollinger %B < 0.1 (near lower band) but MACD histogram is still falling: do NOT buy the dip yet — wait for MACD histogram to flatten or turn up. Reduce confidence by 10pts.
-   e) When both MACD and Bollinger agree (e.g., bullish crossover + bounce off lower band, or bearish crossover + rejection at upper band): boost confidence by 5-10pts — high-conviction signal.
-   f) A Bollinger Squeeze with a simultaneous MACD crossover is the strongest entry signal — boost confidence by 10-15pts.
+   c) When MACD says bullish but Bollinger %B > 0.9 (near upper band): reduce confidence by 10-15pts — momentum is overextended. Prefer a limit order near the middle band.
+   d) When Bollinger %B < 0.1 (near lower band) but MACD histogram is still falling: do NOT buy the dip yet — wait for MACD histogram to flatten or turn up. Reduce confidence by 15pts.
+   e) When both MACD and Bollinger agree (e.g., bullish crossover + bounce off lower band, or bearish crossover + rejection at upper band): boost confidence by 5pts — confirming signal but not a free pass.
+   f) A Bollinger Squeeze with a simultaneous MACD crossover is a strong entry signal — boost confidence by 5-10pts (not sufficient alone for STRONG BUY).
 10. VALUE INVESTING FRAMEWORK (individual stocks only — skip for ETFs and crypto):
    Rate each stock A through D based on these criteria:
    - ROE > 15% (strong profitability)
@@ -213,7 +223,7 @@ INSTRUCTIONS:
    - Current price below analyst target
    Rating: A (excellent, meets 4-5 criteria), B (good, meets 3), C (fair, meets 1-2), D (overvalued, meets 0 or negative growth with high debt).
    If fundamental data is unavailable (ETFs, crypto), set valueRating to empty string.
-   Factor the value rating into your confidence: A boosts confidence ~10pts, D reduces ~10pts.
+   Factor the value rating into your confidence: A boosts confidence ~5pts, D reduces ~10pts.
 11. BOTTOM-FISHING MODEL (all tickers — stocks, ETFs, and crypto):
    Evaluate these bottom indicators for every ticker:
    - RSI < 30 (oversold)
@@ -221,8 +231,8 @@ INSTRUCTIONS:
    - Price below 200-day MA (deep value territory)
    - Death cross present (may already be priced in — contrarian signal if RSI is very low)
    Thresholds differ by asset type:
-   - Crypto (BTC, ETH): flag bottomSignal when 2+ indicators are present. Consider STRONG BUY upgrade when 3+ align.
-   - Stocks and ETFs: flag bottomSignal when 3+ indicators are present (stricter — avoids false signals from single dips). Consider STRONG BUY upgrade when all 4 align.
+   - Crypto (BTC, ETH): flag bottomSignal when 2+ indicators are present. A bottom signal alone does NOT justify STRONG BUY — the ticker must still meet all STRONG BUY criteria above.
+   - Stocks and ETFs: flag bottomSignal when 3+ indicators are present (stricter — avoids false signals from single dips). A bottom signal is a supporting factor, not a STRONG BUY trigger on its own.
    Set bottomSignal to a brief description (e.g. "RSI oversold + volume contraction + below 200MA").
    If not enough indicators are present, set bottomSignal to empty string.`;
 }

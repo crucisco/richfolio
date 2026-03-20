@@ -76,6 +76,11 @@ export function compareWithBaseline(
       triggerType = "confidence_change";
     }
 
+    // Skip alerts below minimum confidence threshold
+    if (triggerType && triggerType !== "action_downgrade" && rec.confidence < config.minConfidenceToAlert) {
+      triggerType = null;
+    }
+
     if (triggerType) {
       alerts.push({
         ticker: rec.ticker,
