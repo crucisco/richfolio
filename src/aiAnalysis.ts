@@ -6,6 +6,22 @@ import type { TechnicalData } from "./fetchTechnicals.js";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
+// Bond/fixed-income ETFs — rate instruments, not equity momentum plays
+const STABLE_INCOME_ETFS = new Set([
+  // Short-term government/credit
+  "BSV", "SHY", "VGSH", "SCHO", "BIL", "SHV", "CLTL", "SGOV",
+  // Intermediate
+  "BND", "AGG", "IEF", "VGIT", "GOVT", "GVI",
+  // Long-term
+  "TLT", "EDV", "VGLT", "TLH",
+  // Corporate
+  "LQD", "VCSH", "VCIT", "VCLT", "HYG", "JNK", "USIG",
+  // TIPS / inflation-protected
+  "TIP", "SCHP", "VTIP", "STIP",
+  // International
+  "BNDX", "IAGG",
+]);
+
 // ── Types ───────────────────────────────────────────────────────────
 export interface AIBuyRecommendation {
   ticker: string;
@@ -98,8 +114,11 @@ function buildPrompt(
       .map((n) => `"${n.title}" (${n.source})`)
       .join("; ");
 
+    const isStableIncome = STABLE_INCOME_ETFS.has(item.ticker.toUpperCase());
+
     const lines = [
       `${item.ticker}:`,
+      isStableIncome ? `  Asset type: STABLE INCOME ETF (bond/fixed-income — apply special framework in instruction 12)` : null,
       `  Price: $${item.price.toFixed(2)}`,
       `  Trailing P/E: ${quote?.trailingPE?.toFixed(1) ?? "N/A"}`,
       `  Forward P/E: ${quote?.forwardPE?.toFixed(1) ?? "N/A"}`,
@@ -234,7 +253,26 @@ INSTRUCTIONS:
    - Crypto (BTC, ETH): flag bottomSignal when 2+ indicators are present. A bottom signal alone does NOT justify STRONG BUY — the ticker must still meet all STRONG BUY criteria above.
    - Stocks and ETFs: flag bottomSignal when 3+ indicators are present (stricter — avoids false signals from single dips). A bottom signal is a supporting factor, not a STRONG BUY trigger on its own.
    Set bottomSignal to a brief description (e.g. "RSI oversold + volume contraction + below 200MA").
-   If not enough indicators are present, set bottomSignal to empty string.`;
+   If not enough indicators are present, set bottomSignal to empty string.
+12. STABLE INCOME / BOND ETFs (any ticker marked "STABLE INCOME ETF" in the data above):
+   These are rate instruments, NOT equity momentum plays. Apply a completely different framework:
+   a) MAX ACTION IS BUY — never STRONG BUY. Bond/income ETFs have no equity-style upside.
+      Their entire purpose is income and capital stability, not price appreciation.
+   b) DO NOT use RSI, MACD, Bollinger Bands, or momentum signals as buy signals.
+      Bond ETFs have a tiny price range (~2% annual spread) driven entirely by interest rates.
+      "Oversold RSI" = rates rose, not irrational selling. A golden cross where 50MA and 200MA
+      differ by $0.05 is noise. Do not frame these as "rebound" opportunities.
+   c) FOCUS YOUR ANALYSIS ON:
+      - Allocation gap (the primary driver — is the portfolio underweight the target?)
+      - Yield (is it competitive vs category average? Short-duration ETFs yield less than long-duration)
+      - Duration risk (short-duration = lower rate sensitivity = appropriate when rates are elevated)
+      - Rate environment context (bond prices move inversely with rates — mention if relevant)
+   d) FRAMING — use accumulation language, not momentum language:
+      - Good: "Systematic accumulation near lower NAV; allocation gap of X% justifies adding"
+      - Good: "Short-duration bond ETF near 52w low; DCA approach appropriate given elevated rates"
+      - Bad: "Oversold RSI suggests strong rebound potential" (this is a category error for bonds)
+   e) CONFIDENCE: Bond ETFs should rarely exceed 75%. Reserve 75-80% only for large allocation
+      gaps (≥5%) combined with competitive yield and price near 52-week low.`;
 }
 
 // ── Call Gemini ─────────────────────────────────────────────────────
@@ -267,6 +305,14 @@ export async function aiAnalyze(
     const recommendations = JSON.parse(
       response.text ?? "[]"
     ) as AIBuyRecommendation[];
+
+    // Hard cap: stable income ETFs can never be STRONG BUY (structural rule, not prompt-dependent)
+    for (const rec of recommendations) {
+      if (STABLE_INCOME_ETFS.has(rec.ticker.toUpperCase()) && rec.action === "STRONG BUY") {
+        rec.action = "BUY";
+        rec.confidence = Math.min(rec.confidence, 75);
+      }
+    }
 
     // Log summary
     for (const rec of recommendations) {
