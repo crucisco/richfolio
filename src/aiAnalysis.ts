@@ -6,21 +6,29 @@ import type { TechnicalData } from "./fetchTechnicals.js";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-// Bond/fixed-income ETFs — rate instruments, not equity momentum plays
-const STABLE_INCOME_ETFS = new Set([
-  // Short-term government/credit
+// Short-duration bond ETFs (1-5 year) — essentially cash equivalents, ~2% annual price range.
+// No equity-style upside. Hard cap at BUY — STRONG BUY is never appropriate here.
+const SHORT_DURATION_BOND_ETFS = new Set([
   "BSV", "SHY", "VGSH", "SCHO", "BIL", "SHV", "CLTL", "SGOV",
-  // Intermediate
+  "VCSH", "USIG",
+]);
+
+// Long/intermediate-duration bond ETFs — rate-sensitive, can rally 20-30% when rates drop.
+// STRONG BUY is valid at rate cycle peaks (near multi-year lows, large allocation gap).
+// But RSI/MACD/momentum are still NOT the right signals — rate environment is.
+const LONG_DURATION_BOND_ETFS = new Set([
+  // Intermediate government
   "BND", "AGG", "IEF", "VGIT", "GOVT", "GVI",
-  // Long-term
+  // Long-term government
   "TLT", "EDV", "VGLT", "TLH",
-  // Corporate
-  "LQD", "VCSH", "VCIT", "VCLT", "HYG", "JNK", "USIG",
+  // Corporate (intermediate/long)
+  "LQD", "VCIT", "VCLT", "HYG", "JNK",
   // TIPS / inflation-protected
   "TIP", "SCHP", "VTIP", "STIP",
   // International
   "BNDX", "IAGG",
 ]);
+
 
 // ── Types ───────────────────────────────────────────────────────────
 export interface AIBuyRecommendation {
@@ -114,11 +122,14 @@ function buildPrompt(
       .map((n) => `"${n.title}" (${n.source})`)
       .join("; ");
 
-    const isStableIncome = STABLE_INCOME_ETFS.has(item.ticker.toUpperCase());
+    const ticker = item.ticker.toUpperCase();
+    const isShortBond = SHORT_DURATION_BOND_ETFS.has(ticker);
+    const isLongBond = LONG_DURATION_BOND_ETFS.has(ticker);
 
     const lines = [
       `${item.ticker}:`,
-      isStableIncome ? `  Asset type: STABLE INCOME ETF (bond/fixed-income — apply special framework in instruction 12)` : null,
+      isShortBond ? `  Asset type: SHORT-DURATION BOND ETF (1-5 year, ~2% price range — apply framework 12a)` : null,
+      isLongBond ? `  Asset type: LONG/INTERMEDIATE-DURATION BOND ETF (rate-sensitive, can rally on rate cuts — apply framework 12b)` : null,
       `  Price: $${item.price.toFixed(2)}`,
       `  Trailing P/E: ${quote?.trailingPE?.toFixed(1) ?? "N/A"}`,
       `  Forward P/E: ${quote?.forwardPE?.toFixed(1) ?? "N/A"}`,
@@ -254,25 +265,32 @@ INSTRUCTIONS:
    - Stocks and ETFs: flag bottomSignal when 3+ indicators are present (stricter — avoids false signals from single dips). A bottom signal is a supporting factor, not a STRONG BUY trigger on its own.
    Set bottomSignal to a brief description (e.g. "RSI oversold + volume contraction + below 200MA").
    If not enough indicators are present, set bottomSignal to empty string.
-12. STABLE INCOME / BOND ETFs (any ticker marked "STABLE INCOME ETF" in the data above):
-   These are rate instruments, NOT equity momentum plays. Apply a completely different framework:
-   a) MAX ACTION IS BUY — never STRONG BUY. Bond/income ETFs have no equity-style upside.
-      Their entire purpose is income and capital stability, not price appreciation.
-   b) DO NOT use RSI, MACD, Bollinger Bands, or momentum signals as buy signals.
-      Bond ETFs have a tiny price range (~2% annual spread) driven entirely by interest rates.
-      "Oversold RSI" = rates rose, not irrational selling. A golden cross where 50MA and 200MA
-      differ by $0.05 is noise. Do not frame these as "rebound" opportunities.
-   c) FOCUS YOUR ANALYSIS ON:
-      - Allocation gap (the primary driver — is the portfolio underweight the target?)
-      - Yield (is it competitive vs category average? Short-duration ETFs yield less than long-duration)
-      - Duration risk (short-duration = lower rate sensitivity = appropriate when rates are elevated)
-      - Rate environment context (bond prices move inversely with rates — mention if relevant)
-   d) FRAMING — use accumulation language, not momentum language:
-      - Good: "Systematic accumulation near lower NAV; allocation gap of X% justifies adding"
-      - Good: "Short-duration bond ETF near 52w low; DCA approach appropriate given elevated rates"
-      - Bad: "Oversold RSI suggests strong rebound potential" (this is a category error for bonds)
-   e) CONFIDENCE: Bond ETFs should rarely exceed 75%. Reserve 75-80% only for large allocation
-      gaps (≥5%) combined with competitive yield and price near 52-week low.`;
+12. BOND ETFs — two frameworks depending on duration:
+   For ALL bond ETFs: DO NOT use RSI, MACD, Bollinger Bands, or momentum crossovers as buy signals.
+   Bond prices are driven by interest rates, not sentiment. "Oversold RSI" means rates rose.
+   A golden cross where 50MA and 200MA differ by $0.05 is noise. Never say "rebound potential."
+
+   12a. SHORT-DURATION BOND ETFs (marked "SHORT-DURATION BOND ETF"):
+      - 1-5 year maturities, ~2% annual price range. These are cash equivalents.
+      - MAX ACTION IS BUY — NEVER STRONG BUY. There is no meaningful capital appreciation upside.
+      - Best time to buy: whenever you have an allocation gap. Entry price barely matters.
+      - Focus: allocation gap size and yield competitiveness. Nothing else is material.
+      - Framing: "Systematic accumulation to fill X% allocation gap; yield of Y% is acceptable"
+      - Confidence cap: 65%. These are boring by design.
+
+   12b. LONG/INTERMEDIATE-DURATION BOND ETFs (marked "LONG/INTERMEDIATE-DURATION BOND ETF"):
+      - Intermediate (7-10yr) and long-term (20yr+) funds are RATE-SENSITIVE.
+      - TLT can rally 20-30% when rates drop significantly. This IS a real opportunity.
+      - STRONG BUY IS VALID when ALL of these align:
+        * Allocation gap ≥ 2%
+        * Price near 52-week low (implies rates are currently elevated — upside when they fall)
+        * Rate environment context suggests rates may be near a cycle peak
+        * Confidence ≥ 80% based on gap + rate reasoning (not RSI/MACD)
+      - BUY when: allocation gap exists and price is in lower half of 52-week range
+      - WAIT when: price near 52-week high (rates already fell, upside is limited)
+      - Focus: allocation gap, 52-week position (proxy for rate cycle position), yield, duration
+      - Framing: "Long-duration bond ETF near 52w low with X% gap; elevated rates suggest
+        potential capital gains if rates decline" NOT "oversold RSI signals rebound"`;
 }
 
 // ── Call Gemini ─────────────────────────────────────────────────────
@@ -306,11 +324,11 @@ export async function aiAnalyze(
       response.text ?? "[]"
     ) as AIBuyRecommendation[];
 
-    // Hard cap: stable income ETFs can never be STRONG BUY (structural rule, not prompt-dependent)
+    // Hard cap: short-duration bond ETFs can never be STRONG BUY (no capital appreciation upside)
     for (const rec of recommendations) {
-      if (STABLE_INCOME_ETFS.has(rec.ticker.toUpperCase()) && rec.action === "STRONG BUY") {
+      if (SHORT_DURATION_BOND_ETFS.has(rec.ticker.toUpperCase()) && rec.action === "STRONG BUY") {
         rec.action = "BUY";
-        rec.confidence = Math.min(rec.confidence, 75);
+        rec.confidence = Math.min(rec.confidence, 65);
       }
     }
 
