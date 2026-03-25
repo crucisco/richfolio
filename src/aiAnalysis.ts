@@ -134,7 +134,20 @@ function buildPrompt(
       `  Trailing P/E: ${quote?.trailingPE?.toFixed(1) ?? "N/A"}`,
       `  Forward P/E: ${quote?.forwardPE?.toFixed(1) ?? "N/A"}`,
       `  Avg P/E (historical): ${quote?.avgPE?.toFixed(1) ?? "N/A"}`,
-      `  52-week position: ${item.fiftyTwoWeekPercent != null ? (item.fiftyTwoWeekPercent * 100).toFixed(0) + "%" : "N/A"} (0%=at low, 100%=at high)`,
+      (() => {
+        const wpPct = item.fiftyTwoWeekPercent != null ? Math.round(item.fiftyTwoWeekPercent * 100) : null;
+        const belowHigh = quote?.fiftyTwoWeekHigh != null
+          ? ((quote.fiftyTwoWeekHigh - item.price) / quote.fiftyTwoWeekHigh * 100).toFixed(1)
+          : null;
+        const aboveLow = quote?.fiftyTwoWeekLow != null
+          ? ((item.price - quote.fiftyTwoWeekLow) / quote.fiftyTwoWeekLow * 100).toFixed(1)
+          : null;
+        if (wpPct == null) return `  52-week position: N/A`;
+        const qualifier = wpPct < 20 ? " ← NEAR ANNUAL LOW" : wpPct > 70 ? " ← NEAR ANNUAL HIGH" : "";
+        return `  52-week position: ${wpPct}% of annual range (0%=at 52w low, 100%=at 52w high)${qualifier}` +
+          (belowHigh != null ? `; ${belowHigh}% below 52w high` : "") +
+          (aboveLow != null ? `; ${aboveLow}% above 52w low` : "");
+      })(),
       `  Dividend yield: ${item.dividendYield != null ? (item.dividendYield * 100).toFixed(2) + "%" : "N/A"}`,
       `  Beta: ${item.beta?.toFixed(2) ?? "N/A"}`,
       `  Current allocation: ${item.currentPct.toFixed(1)}% (target: ${item.targetPct.toFixed(1)}%, gap: ${item.gapPct > 0 ? "+" : ""}${item.gapPct.toFixed(1)}%)`,
@@ -217,7 +230,18 @@ INSTRUCTIONS:
    STRONG BUY CRITERIA (ALL must be met — this is the highest bar, reserve for truly exceptional setups):
    a) Allocation gap ≥ 2% (meaningful underweight — small gaps don't justify urgency)
    b) Confidence ≥ 80% BEFORE any indicator boosts (the raw setup must be strong on its own)
-   c) At least 2 of these entry signals: P/E below historical average, within 30% of 52-week low, RSI < 35, bullish MACD crossover, price near/below lower Bollinger Band
+   c) At least 2 entry signals, including AT LEAST 1 price-level signal:
+      Price-level signals (absolute cheapness — confirm the price is genuinely depressed):
+      - P/E below historical average (undervalued vs own history)
+      - 52-week position < 30% (near annual lows — price is structurally low)
+      Momentum signals (recent selloff only — do NOT confirm price cheapness alone):
+      - RSI < 35
+      - Bullish MACD crossover
+      - Price near/below lower Bollinger Band (%B < 0.15)
+      CRITICAL RULE: 2 momentum signals alone (e.g. RSI + Bollinger) are NOT sufficient
+      for STRONG BUY. A brief sharp dip can trigger both while the price is still near
+      its annual highs. If 52-week position > 60%, the "near low" signal does NOT apply.
+      ITA example: RSI 21 + Bollinger %B 0.13 at 77% of annual range = BUY (not STRONG BUY).
    d) No major red flags (bearish MACD divergence + overbought RSI together = disqualify)
    If ANY criterion is not met, cap at BUY. Most tickers most days should be HOLD or WAIT.
    BUY: Decent opportunity — has allocation need and reasonable entry, but missing one or more STRONG BUY criteria.
