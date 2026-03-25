@@ -259,7 +259,8 @@ INSTRUCTIONS:
 8. For STRONG BUY and BUY tickers, suggest a limit order price slightly below current market. Base it on the nearest support level: 50-day MA, recent 7d/30d low, or a round number. Set suggestedLimitPrice (the price) and limitPriceReason (1 sentence explaining the level). Set both to 0/"" for HOLD/WAIT.
 9. Use technical indicators (MA, RSI, MACD, Bollinger Bands, momentum) to refine confidence:
    - A bullish momentum signal with oversold RSI strengthens a buy case. A bearish signal or overbought RSI weakens it.
-   - MACD: A bullish crossover (MACD crosses above signal) confirms upward momentum. A positive and rising histogram strengthens conviction. A bearish crossover is a caution signal.
+   - MACD: A bullish crossover (MACD crosses above signal) confirms upward momentum. A positive and rising histogram strengthens conviction. A bearish crossover is a caution signal. If MACD is bearish, reduce confidence by 10pts regardless of other signals.
+   - Golden cross (50MA > 200MA): only meaningful as a bullish signal when price is ABOVE the 200MA. If price is currently BELOW the 200MA (even with 50MA > 200MA), the golden cross is a lagging artifact of a prior uptrend — treat momentum as neutral, not bullish. A death cross risk increases in this scenario.
    - Bollinger Bands: %B near 0 (at lower band) suggests oversold/mean-reversion opportunity. %B near 1 (at upper band) suggests overbought. A squeeze (low bandwidth) signals an imminent breakout — wait for direction confirmation from MACD before acting.
    INDICATOR CONFLICT RESOLUTION (follow this hierarchy when indicators disagree):
    a) MACD is best for TRENDING markets — trust it over Bollinger Bands when price is clearly trending (above/below both MAs, strong momentum).
