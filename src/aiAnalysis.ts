@@ -234,6 +234,7 @@ INSTRUCTIONS:
       Price-level signals (absolute cheapness — confirm the price is genuinely depressed):
       - P/E below historical average (undervalued vs own history)
       - 52-week position < 30% (near annual lows — price is structurally low)
+      - Price below 200-day MA (sustained decline, not a brief dip — especially useful for ETFs that lack P/E)
       Momentum signals (recent selloff only — do NOT confirm price cheapness alone):
       - RSI < 35
       - Bullish MACD crossover
