@@ -113,7 +113,8 @@ function buildPrompt(
   report: AllocationReport,
   priceData: Record<string, QuoteData>,
   news: Record<string, NewsItem[]>,
-  technicals: Record<string, TechnicalData> = {}
+  technicals: Record<string, TechnicalData> = {},
+  macroContext: string = ""
 ): string {
   const tickerSummaries = report.items.map((item) => {
     const quote = priceData[item.ticker];
@@ -212,7 +213,7 @@ function buildPrompt(
 
   return `You are a portfolio analyst. Analyze these tickers and recommend which to buy.
 
-PORTFOLIO CONTEXT:
+${macroContext ? macroContext + "\n" : ""}PORTFOLIO CONTEXT:
 - Total portfolio value: $${report.totalCurrentValue.toLocaleString()} (target: $50,000)
 - Portfolio beta: ${report.portfolioBeta?.toFixed(2) ?? "N/A"}
 - Estimated annual dividends: $${report.estimatedAnnualDividend.toFixed(0)}
@@ -324,7 +325,8 @@ export async function aiAnalyze(
   report: AllocationReport,
   priceData: Record<string, QuoteData>,
   news: Record<string, NewsItem[]>,
-  technicals: Record<string, TechnicalData> = {}
+  technicals: Record<string, TechnicalData> = {},
+  macroContext: string = ""
 ): Promise<AIBuyRecommendation[]> {
   if (!GEMINI_API_KEY) {
     console.warn("GEMINI_API_KEY not set — skipping AI analysis\n");
@@ -335,7 +337,7 @@ export async function aiAnalyze(
 
   try {
     const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-    const prompt = buildPrompt(report, priceData, news, technicals);
+    const prompt = buildPrompt(report, priceData, news, technicals, macroContext);
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",

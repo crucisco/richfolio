@@ -135,6 +135,121 @@ async function fetchOne(yahooTicker: string): Promise<QuoteData | null> {
   }
 }
 
+// ── Macro indicators ───────────────────────────────────────────────
+export interface MacroIndicators {
+  vix: number | null;          // ^VIX — fear index
+  treasury10y: number | null;  // ^TNX — 10-year yield (%)
+  sp500Price: number | null;   // ^GSPC — S&P 500 level
+  sp500YtdPct: number | null;  // S&P 500 YTD return (%)
+  sp50052wPct: number | null;  // S&P 500 52-week position (0-1)
+  oilPrice: number | null;     // CL=F — WTI crude
+  dxy: number | null;          // DX-Y.NYB — USD index
+}
+
+const MACRO_TICKERS: Record<string, string> = {
+  "^VIX": "vix",
+  "^TNX": "treasury10y",
+  "^GSPC": "sp500",
+  "CL=F": "oil",
+  "DX-Y.NYB": "dxy",
+};
+
+export async function fetchMacroIndicators(): Promise<MacroIndicators> {
+  console.log("Fetching macro indicators...");
+  const indicators: MacroIndicators = {
+    vix: null,
+    treasury10y: null,
+    sp500Price: null,
+    sp500YtdPct: null,
+    sp50052wPct: null,
+    oilPrice: null,
+    dxy: null,
+  };
+
+  for (const [ticker, key] of Object.entries(MACRO_TICKERS)) {
+    try {
+      const result = await yahooFinance.quoteSummary(ticker, {
+        modules: ["price", "summaryDetail"],
+      });
+      const price = result.price?.regularMarketPrice ?? null;
+      if (price == null) continue;
+
+      switch (key) {
+        case "vix":
+          indicators.vix = Math.round(price * 100) / 100;
+          console.log(`  ✓ VIX: ${indicators.vix}`);
+          break;
+        case "treasury10y":
+          indicators.treasury10y = Math.round(price * 100) / 100;
+          console.log(`  ✓ 10Y yield: ${indicators.treasury10y}%`);
+          break;
+        case "sp500": {
+          indicators.sp500Price = Math.round(price * 100) / 100;
+          const high = result.summaryDetail?.fiftyTwoWeekHigh ?? null;
+          const low = result.summaryDetail?.fiftyTwoWeekLow ?? null;
+          if (high != null && low != null && high !== low) {
+            indicators.sp50052wPct = Math.round(((price - low) / (high - low)) * 1000) / 1000;
+          }
+          // YTD approximation: use 52-week data (not exact but useful context)
+          if (high != null) {
+            indicators.sp500YtdPct = Math.round(((price - high) / high) * 1000) / 10;
+          }
+          console.log(`  ✓ S&P 500: ${indicators.sp500Price}${indicators.sp50052wPct != null ? ` (52w: ${Math.round(indicators.sp50052wPct * 100)}%)` : ""}`);
+          break;
+        }
+        case "oil":
+          indicators.oilPrice = Math.round(price * 100) / 100;
+          console.log(`  ✓ Oil (WTI): $${indicators.oilPrice}`);
+          break;
+        case "dxy":
+          indicators.dxy = Math.round(price * 100) / 100;
+          console.log(`  ✓ USD (DXY): ${indicators.dxy}`);
+          break;
+      }
+    } catch (err) {
+      console.warn(`  ⚠ ${ticker}: macro fetch failed — ${(err as Error).message}`);
+    }
+  }
+
+  console.log("Macro indicators fetched\n");
+  return indicators;
+}
+
+export function formatMacroContext(m: MacroIndicators): string {
+  const lines: string[] = ["MACRO ENVIRONMENT:"];
+
+  if (m.vix != null) {
+    const level = m.vix >= 30 ? "high fear" : m.vix >= 20 ? "elevated" : m.vix >= 15 ? "moderate" : "low/complacent";
+    lines.push(`- VIX: ${m.vix} (${level} — >30 = crisis-level fear, <15 = complacent)`);
+  }
+  if (m.treasury10y != null) {
+    const level = m.treasury10y >= 5 ? "very high — significant headwind for equities" : m.treasury10y >= 4 ? "elevated — pressures equity valuations" : m.treasury10y >= 3 ? "moderate" : "low — supportive for equities";
+    lines.push(`- 10-Year Treasury yield: ${m.treasury10y}% (${level})`);
+  }
+  if (m.sp500Price != null) {
+    let sp500Line = `- S&P 500: ${m.sp500Price.toLocaleString()}`;
+    if (m.sp500YtdPct != null) sp500Line += ` (${m.sp500YtdPct > 0 ? "+" : ""}${m.sp500YtdPct}% from 52w high)`;
+    if (m.sp50052wPct != null) {
+      const pct = Math.round(m.sp50052wPct * 100);
+      sp500Line += ` | 52w position: ${pct}%`;
+    }
+    lines.push(sp500Line);
+  }
+  if (m.oilPrice != null) {
+    const level = m.oilPrice >= 100 ? "very high — inflation risk" : m.oilPrice >= 80 ? "elevated" : m.oilPrice >= 60 ? "moderate" : "low — deflationary signal";
+    lines.push(`- Oil (WTI): $${m.oilPrice} (${level})`);
+  }
+  if (m.dxy != null) {
+    const level = m.dxy >= 108 ? "very strong — headwind for multinationals" : m.dxy >= 103 ? "strong" : m.dxy >= 97 ? "neutral" : "weak — tailwind for multinationals";
+    lines.push(`- USD Index (DXY): ${m.dxy} (${level})`);
+  }
+
+  if (lines.length === 1) return ""; // No data fetched
+  lines.push("");
+  lines.push("Use this macro context to inform risk assessment and confidence levels. Elevated VIX + high yields + strong USD = defensive posture. Low VIX + low yields = risk-on environment.");
+  return lines.join("\n");
+}
+
 // ── Fetch all tickers ───────────────────────────────────────────────
 export async function fetchAllPrices(
   tickers: string[]

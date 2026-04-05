@@ -1,5 +1,5 @@
 import { allUniqueTickers, intradayConfig } from "./config.js";
-import { fetchAllPrices } from "./fetchPrices.js";
+import { fetchAllPrices, fetchMacroIndicators, formatMacroContext } from "./fetchPrices.js";
 import { fetchTechnicals } from "./fetchTechnicals.js";
 import { fetchNews } from "./fetchNews.js";
 import type { NewsItem } from "./fetchNews.js";
@@ -24,7 +24,8 @@ async function enrichStrongBuysWithAnalysis(
   aiRecs: AIBuyRecommendation[],
   prices: Record<string, QuoteData>,
   technicals: Record<string, TechnicalData>,
-  report: AllocationReport
+  report: AllocationReport,
+  macroContext: string = ""
 ): Promise<void> {
   const strongBuys = aiRecs.filter((r) => r.action === "STRONG BUY");
   if (strongBuys.length === 0) return;
@@ -34,7 +35,8 @@ async function enrichStrongBuysWithAnalysis(
     prices,
     technicals,
     aiRecs,
-    report
+    report,
+    macroContext
   );
 
   for (const rec of strongBuys) {
@@ -88,7 +90,11 @@ const refreshTicker = refreshTickerRaw && !refreshTickerRaw.startsWith("-") ? re
 
 try {
   const tickers = allUniqueTickers();
-  const prices = await fetchAllPrices(tickers);
+  const [prices, macroIndicators] = await Promise.all([
+    fetchAllPrices(tickers),
+    fetchMacroIndicators(),
+  ]);
+  const macroContext = formatMacroContext(macroIndicators);
   const report = runAnalysis(prices);
 
   // Console summary
@@ -134,7 +140,7 @@ try {
     const refreshReport = runAnalysis(prices);
     const technicals = await fetchTechnicals([refreshTicker]);
     const emptyNews: Record<string, NewsItem[]> = {};
-    const aiRecs = await aiAnalyze(refreshReport, prices, emptyNews, technicals);
+    const aiRecs = await aiAnalyze(refreshReport, prices, emptyNews, technicals, macroContext);
 
     const targetRec = aiRecs.find((r) => r.ticker === refreshTicker);
     if (!targetRec) {
@@ -143,7 +149,7 @@ try {
     }
 
     // Generate detailed analysis + URL
-    await enrichStrongBuysWithAnalysis(aiRecs, prices, technicals, refreshReport);
+    await enrichStrongBuysWithAnalysis(aiRecs, prices, technicals, refreshReport, macroContext);
 
     // Output results
     console.log(`\n${"═".repeat(50)}`);
@@ -195,10 +201,10 @@ try {
     // Run AI analysis WITHOUT news (saves NewsAPI quota), WITH technicals
     const emptyNews: Record<string, NewsItem[]> = {};
     const technicals = await fetchTechnicals(tickers);
-    const aiRecs = await aiAnalyze(report, prices, emptyNews, technicals);
+    const aiRecs = await aiAnalyze(report, prices, emptyNews, technicals, macroContext);
 
     // Generate detailed analysis + "More Details" URLs for STRONG BUY tickers
-    await enrichStrongBuysWithAnalysis(aiRecs, prices, technicals, report);
+    await enrichStrongBuysWithAnalysis(aiRecs, prices, technicals, report, macroContext);
 
     if (aiRecs.length === 0) {
       console.log("AI analysis returned no results — skipping comparison");
@@ -245,10 +251,10 @@ try {
       fetchNews(tickers, prices),
       fetchTechnicals(tickers),
     ]);
-    const aiRecs = await aiAnalyze(report, prices, news, technicals);
+    const aiRecs = await aiAnalyze(report, prices, news, technicals, macroContext);
 
     // Generate detailed analysis + "More Details" URLs for STRONG BUY tickers
-    await enrichStrongBuysWithAnalysis(aiRecs, prices, technicals, report);
+    await enrichStrongBuysWithAnalysis(aiRecs, prices, technicals, report, macroContext);
 
     // Save morning baseline for intraday comparison
     if (aiRecs.length > 0) {

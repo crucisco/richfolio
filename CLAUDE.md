@@ -36,7 +36,7 @@ Single-pipeline flow, no API server. Four modes: daily (default), intraday (`--i
 ```
 src/index.ts (entry point — parses --weekly/--intraday/--refresh flags, wires modules)
   → src/config.ts          # Loads config.json + .env, exports typed portfolio data + intradayConfig
-  → src/fetchPrices.ts     # Yahoo Finance: price, P/E, avgPE, 52w, beta, dividends, ETF top holdings, fundamentals, after-hours prices
+  → src/fetchPrices.ts     # Yahoo Finance: price, P/E, avgPE, 52w, beta, dividends, ETF top holdings, fundamentals, after-hours prices, macro indicators (VIX, 10Y yield, S&P 500, oil, DXY)
   → src/fetchTechnicals.ts # Yahoo Finance chart: SMA50, SMA200, RSI(14), MACD, Bollinger Bands, momentum, support levels, volume change
   → src/fetchNews.ts       # NewsAPI: top 3 headlines per ticker (daily only) + Gemini relevance filter
   → src/analyze.ts         # Allocation gaps, P/E signals, ETF overlap discounts, portfolio beta, dividend estimate
@@ -92,7 +92,8 @@ In GitHub Actions, `config.json` is written from the `CONFIG_JSON` Actions varia
 - **Indicator conflict resolution**: AI prompt includes explicit hierarchy — MACD trusted in trending markets, Bollinger in range-bound. Both agreeing boosts confidence (+5pts); disagreements reduce it (-10-15pts). Squeeze + MACD crossover = strong signal (+5-10pts, not sufficient alone for STRONG BUY)
 - **Limit order prices**: Suggested by AI based on nearest support (50MA, 30d low, round numbers). Shown for STRONG BUY in daily, intraday, and Telegram
 - **Value investing framework**: AI rates stocks A-D based on ROE, debt/equity, FCF, earnings growth, analyst target. Data from Yahoo `financialData` module (same API call). ETFs and crypto get no rating
-- **STRONG BUY criteria**: Strict gate — requires ALL of: ≥2% allocation gap, ≥80% base confidence (before boosts), 2+ entry signals (low P/E, near 52w low, RSI<35, bullish MACD, lower Bollinger), no major red flags. Max 2 STRONG BUYs at any time. Intraday alerts enforce `minConfidenceToAlert` (default 80)
+- **STRONG BUY criteria**: Strict gate — requires ALL of: ≥2% allocation gap, ≥80% base confidence (before boosts), 2+ entry signals including at least 1 price-level signal (low P/E, near 52w low, below 200MA) plus momentum (RSI<35, bullish MACD, lower Bollinger), no major red flags. Max 2 STRONG BUYs at any time. Intraday alerts enforce `minConfidenceToAlert` (default 80)
+- **Macro indicators**: Fetched from Yahoo Finance alongside portfolio tickers (VIX `^VIX`, 10Y Treasury `^TNX`, S&P 500 `^GSPC`, Oil `CL=F`, USD `DX-Y.NYB`). Fed to Gemini as MACRO ENVIRONMENT context in both `aiAnalysis.ts` and `detailedAnalysis.ts`. No extra API key needed — same `yahoo-finance2` instance. Graceful fallback if any ticker fails
 - **Bond ETF framework**: Two hardcoded sets in `aiAnalysis.ts`. `SHORT_DURATION_BOND_ETFS` (BSV, SHY, BIL, etc.): hard-capped at BUY ≤65% — cash equivalents with ~2% annual price range, no STRONG BUY ever. `LONG_DURATION_BOND_ETFS` (TLT, BND, AGG, LQD, etc.): rate-sensitive, STRONG BUY IS valid when near 52w low + large gap + rates appear at cycle peak. For all bond ETFs: RSI/MACD/momentum are NOT buy signals — "oversold RSI" = rates rose
 - **Bottom-fishing model**: AI checks RSI<30, volume contraction, price below 200MA, death cross for all tickers (stocks, ETFs, crypto). 2+ indicators triggers a bottom signal but it's a supporting factor only — does not auto-upgrade to STRONG BUY. Volume change computed from existing chart data
 - **Fundamentals data**: `financialData` module added to existing `quoteSummary` call — zero extra API overhead. Returns null for ETFs and crypto
