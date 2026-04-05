@@ -37,7 +37,8 @@ function buildDetailedPrompt(
   quote: QuoteData,
   tech: TechnicalData | undefined,
   rec: AIBuyRecommendation,
-  report: AllocationReport
+  report: AllocationReport,
+  macroContext: string = ""
 ): string {
   const item = report.items.find((i) => i.ticker === ticker);
   const gap = item ? `${item.gapPct > 0 ? "+" : ""}${item.gapPct.toFixed(1)}%` : "N/A";
@@ -50,14 +51,33 @@ function buildDetailedPrompt(
     `TICKER: ${ticker}`,
     `Current price: $${quote.price.toFixed(2)}`,
     `Trailing P/E: ${quote.trailingPE?.toFixed(1) ?? "N/A"} | Forward P/E: ${quote.forwardPE?.toFixed(1) ?? "N/A"} | Avg P/E: ${quote.avgPE?.toFixed(1) ?? "N/A"}`,
-    `52-week: low $${quote.fiftyTwoWeekLow?.toFixed(2) ?? "N/A"} — high $${quote.fiftyTwoWeekHigh?.toFixed(2) ?? "N/A"} (at ${quote.fiftyTwoWeekPercent != null ? (quote.fiftyTwoWeekPercent * 100).toFixed(0) + "%" : "N/A"})`,
+    (() => {
+      const wpPct = quote.fiftyTwoWeekPercent != null ? Math.round(quote.fiftyTwoWeekPercent * 100) : null;
+      const belowHigh = quote.fiftyTwoWeekHigh != null
+        ? ((quote.fiftyTwoWeekHigh - quote.price) / quote.fiftyTwoWeekHigh * 100).toFixed(1)
+        : null;
+      const aboveLow = quote.fiftyTwoWeekLow != null
+        ? ((quote.price - quote.fiftyTwoWeekLow) / quote.fiftyTwoWeekLow * 100).toFixed(1)
+        : null;
+      if (wpPct == null) return `52-week: low $${quote.fiftyTwoWeekLow?.toFixed(2) ?? "N/A"} — high $${quote.fiftyTwoWeekHigh?.toFixed(2) ?? "N/A"} (position N/A)`;
+      const qualifier = wpPct < 20 ? " ← NEAR ANNUAL LOW" : wpPct > 70 ? " ← NEAR ANNUAL HIGH" : "";
+      return `52-week: low $${quote.fiftyTwoWeekLow?.toFixed(2)} — high $${quote.fiftyTwoWeekHigh?.toFixed(2)} | ${wpPct}% of range (0%=at low, 100%=at high)${qualifier}` +
+        (belowHigh != null ? ` | ${belowHigh}% below 52w high` : "") +
+        (aboveLow != null ? ` | ${aboveLow}% above 52w low` : "");
+    })(),
     `Dividend yield: ${quote.dividendYield != null ? (quote.dividendYield * 100).toFixed(2) + "%" : "N/A"} | Beta: ${quote.beta?.toFixed(2) ?? "N/A"}`,
     `Allocation: current ${current}, target ${target}, gap ${gap}`,
     `AI summary: "${rec.reason}" (confidence ${rec.confidence}%)`,
   ];
 
   if (tech) {
-    lines.push(`Technical: ${tech.momentumSignal} momentum, RSI ${tech.rsi14}, 50MA $${tech.sma50} (${tech.priceVsSma50 > 0 ? "+" : ""}${tech.priceVsSma50}%)${tech.sma200 != null ? `, 200MA $${tech.sma200}` : ""}${tech.goldenCross ? " (golden cross)" : ""}${tech.deathCross ? " (death cross)" : ""}${tech.macdCrossover ? `, MACD ${tech.macdCrossover}` : tech.macdHistogram != null ? `, MACD hist ${tech.macdHistogram > 0 ? "+" : ""}${tech.macdHistogram}` : ""}${tech.bollPercentB != null ? `, %B=${tech.bollPercentB}` : ""}${tech.bollSqueeze ? " (squeeze)" : ""}`);
+    const priceBelow200 = tech.sma200 != null && tech.priceVsSma200 != null && tech.priceVsSma200 < 0;
+    const goldenCrossNote = tech.goldenCross
+      ? priceBelow200
+        ? " (golden cross — BUT price is below 200MA, so this is a lagging artifact, NOT a bullish signal)"
+        : " (golden cross)"
+      : "";
+    lines.push(`Technical: ${tech.momentumSignal} momentum, RSI ${tech.rsi14}, 50MA $${tech.sma50} (${tech.priceVsSma50 > 0 ? "+" : ""}${tech.priceVsSma50}%)${tech.sma200 != null ? `, 200MA $${tech.sma200} (${tech.priceVsSma200! > 0 ? "+" : ""}${tech.priceVsSma200}%)` : ""}${goldenCrossNote}${tech.deathCross ? " (death cross)" : ""}${tech.macdCrossover ? `, MACD ${tech.macdCrossover}` : tech.macdHistogram != null ? `, MACD hist ${tech.macdHistogram > 0 ? "+" : ""}${tech.macdHistogram}` : ""}${tech.bollPercentB != null ? `, %B=${tech.bollPercentB}` : ""}${tech.bollSqueeze ? " (squeeze)" : ""}`);
   }
 
   if (quote.returnOnEquity != null || quote.debtToEquity != null) {
@@ -79,12 +99,21 @@ function buildDetailedPrompt(
     lines.push(`Bottom signal: ${rec.bottomSignal}`);
   }
 
+  if (macroContext) {
+    lines.push("");
+    lines.push(macroContext);
+  }
+
   lines.push("");
   lines.push("Write a detailed buy thesis (3-4 paragraphs, 150-200 words total) covering:");
   lines.push("1. Why this is a STRONG BUY opportunity right now (timing + catalyst)");
   lines.push("2. Valuation analysis (P/E vs historical, fundamentals, analyst targets)");
   lines.push("3. Technical setup (momentum, support levels, entry timing)");
   lines.push("4. Portfolio fit (allocation need, diversification benefit)");
+  lines.push("");
+  lines.push("CRITICAL RULES:");
+  lines.push("- The 52-week position percentage is the position WITHIN the annual range (0%=at 52w low, 100%=at 52w high). Do NOT describe it as '% of 52-week high' — that is a different number. Use the explicit '% below 52w high' value provided.");
+  lines.push("- If price is below the 200-day MA, do NOT cite a golden cross as bullish — it is a lagging artifact when price has already fallen below the long-term trend.");
   lines.push("");
   lines.push("Also list 3-4 specific risks to watch. Be concise and reference actual numbers.");
 
@@ -97,7 +126,8 @@ export async function fetchDetailedAnalyses(
   priceData: Record<string, QuoteData>,
   technicals: Record<string, TechnicalData>,
   aiRecs: AIBuyRecommendation[],
-  report: AllocationReport
+  report: AllocationReport,
+  macroContext: string = ""
 ): Promise<Record<string, DetailedAnalysis>> {
   if (!GEMINI_API_KEY || strongBuyTickers.length === 0) return {};
 
@@ -113,7 +143,7 @@ export async function fetchDetailedAnalyses(
     if (!quote || !rec) continue;
 
     try {
-      const prompt = buildDetailedPrompt(ticker, quote, technicals[ticker], rec, report);
+      const prompt = buildDetailedPrompt(ticker, quote, technicals[ticker], rec, report, macroContext);
 
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
