@@ -105,7 +105,7 @@ async function fetchOne(yahooTicker: string): Promise<QuoteData | null> {
 
     return {
       ticker: configTicker,
-      name: result.price?.shortName ?? result.price?.longName ?? null,
+      name: result.price?.longName ?? result.price?.shortName ?? null,
       price,
       trailingPE: result.summaryDetail?.trailingPE ?? null,
       forwardPE: result.summaryDetail?.forwardPE ?? null,

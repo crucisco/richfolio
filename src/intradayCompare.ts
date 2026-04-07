@@ -5,6 +5,7 @@ import type { IntradayAlertConfig } from "./config.js";
 // ── Types ───────────────────────────────────────────────────────────
 export interface IntradayAlert {
   ticker: string;
+  tickerFullName: string | null;
   morningAction: string;
   morningConfidence: number;
   currentAction: string;
@@ -84,6 +85,7 @@ export function compareWithBaseline(
     if (triggerType) {
       alerts.push({
         ticker: rec.ticker,
+        tickerFullName: rec.tickerFullName ?? null,
         morningAction,
         morningConfidence,
         currentAction: rec.action,

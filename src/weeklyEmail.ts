@@ -103,7 +103,7 @@ export function buildWeeklyEmailHtml(report: AllocationReport): string {
       const action = actionLabel(item.gapPct);
       return `
     <tr>
-      <td style="padding:5px 3px;border-bottom:1px solid ${S.border};font-weight:bold;">${item.ticker}</td>
+      <td style="padding:5px 3px;border-bottom:1px solid ${S.border};font-weight:bold;" title="${item.tickerFullName || item.ticker}">${item.ticker}</td>
       <td style="padding:5px 3px;border-bottom:1px solid ${S.border};text-align:center;">
         <span style="background:${action.color};color:#000;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:bold;">${action.text}</span>
       </td>

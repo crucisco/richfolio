@@ -48,7 +48,7 @@ function buildDetailedPrompt(
   const lines = [
     `You are a senior investment analyst writing a detailed buy recommendation for a client.`,
     ``,
-    `TICKER: ${ticker}`,
+    `TICKER: ${ticker}${rec.tickerFullName ? ` (${rec.tickerFullName})` : ""}`,
     `Current price: $${quote.price.toFixed(2)}`,
     `Trailing P/E: ${quote.trailingPE?.toFixed(1) ?? "N/A"} | Forward P/E: ${quote.forwardPE?.toFixed(1) ?? "N/A"} | Avg P/E: ${quote.avgPE?.toFixed(1) ?? "N/A"}`,
     (() => {
@@ -112,6 +112,7 @@ function buildDetailedPrompt(
   lines.push("4. Portfolio fit (allocation need, diversification benefit)");
   lines.push("");
   lines.push("CRITICAL RULES:");
+  lines.push("- Use the full company/ETF name (provided above) in your thesis, not generic phrases like \"This ETF\" or \"The stock\". Reference by full name when appropriate.");
   lines.push("- The 52-week position percentage is the position WITHIN the annual range (0%=at 52w low, 100%=at 52w high). Do NOT describe it as '% of 52-week high' — that is a different number. Use the explicit '% below 52w high' value provided.");
   lines.push("- If price is below the 200-day MA, do NOT cite a golden cross as bullish — it is a lagging artifact when price has already fallen below the long-term trend.");
   lines.push("");
