@@ -99,7 +99,7 @@ export function buildIntradayEmailHtml(alerts: IntradayAlert[]): string {
       (a) => `
   <div style="padding:14px 0;border-bottom:1px solid ${S.border};">
     <div style="margin-bottom:6px;">
-      <span style="font-weight:bold;font-size:16px;color:#fff;">${a.ticker}</span>
+      <span style="font-weight:bold;font-size:16px;color:#fff;" title="${a.tickerFullName || a.ticker}">${a.ticker}</span>
       &nbsp;${actionBadge(a.currentAction)}${valueRatingBadge(a.valueRating)}
       <span style="float:right;font-size:11px;color:${S.yellow};text-transform:uppercase;">${triggerLabel(a.triggerType)}</span>
     </div>

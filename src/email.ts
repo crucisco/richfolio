@@ -152,7 +152,7 @@ function buildAISection(aiRecs: AIBuyRecommendation[], technicals: Record<string
   ${actionable.length > 0 ? actionable.map((rec) => `
   <div style="padding:10px 0;border-bottom:1px solid ${S.border};">
     <div style="margin-bottom:4px;">
-      <span style="font-weight:bold;font-size:14px;color:#fff;">${rec.ticker}</span>
+      <span style="font-weight:bold;font-size:14px;color:#fff;" title="${rec.tickerFullName || rec.ticker}">${rec.ticker}</span>
       &nbsp;${actionBadge(rec.action)}${valueRatingBadge(rec.valueRating)}
       &nbsp;${confidenceBar(rec.confidence)}
       ${rec.suggestedBuyValue > 0 ? `<span style="float:right;font-weight:bold;color:#fff;">${fmt$(rec.suggestedBuyValue)}</span>` : ""}
@@ -169,7 +169,7 @@ function buildAISection(aiRecs: AIBuyRecommendation[], technicals: Record<string
     <div style="font-size:11px;color:${S.muted};text-transform:uppercase;margin-bottom:6px;">Hold / Wait</div>
     ${others.map((rec) => `
     <div style="padding:4px 0;font-size:12px;">
-      <span style="font-weight:bold;">${rec.ticker}</span>
+      <span style="font-weight:bold;" title="${rec.tickerFullName || rec.ticker}">${rec.ticker}</span>
       &nbsp;${actionBadge(rec.action)}${valueRatingBadge(rec.valueRating)}
       <span style="color:${S.muted};margin-left:8px;">${rec.reason}</span>
     </div>`).join("")}
@@ -199,7 +199,7 @@ function buildFallbackBuysSection(report: AllocationReport): string {
     </tr>
     ${buys.map((b) => `
     <tr>
-      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};font-weight:bold;">${b.ticker}</td>
+      <td style="padding:6px 4px;border-bottom:1px solid ${S.border};font-weight:bold;" title="${b.tickerFullName || b.ticker}">${b.ticker}</td>
       <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:right;color:${S.red};">${fmtPct(b.gapPct)}</td>
       <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:right;">${b.suggestedBuyShares.toFixed(1)}</td>
       <td style="padding:6px 4px;border-bottom:1px solid ${S.border};text-align:right;">${fmt$(b.suggestedBuyValue)}${b.overlapDiscount > 0 ? `<div style="font-size:10px;color:${S.muted};">-${fmt$(b.overlapDiscount)} overlap</div>` : ""}</td>
@@ -283,7 +283,7 @@ ${buysSection}
     </tr>
     ${report.items.map((item) => `
     <tr>
-      <td style="padding:5px 3px;border-bottom:1px solid ${S.border};font-weight:bold;">${item.ticker}</td>
+      <td style="padding:5px 3px;border-bottom:1px solid ${S.border};font-weight:bold;" title="${item.tickerFullName || item.ticker}">${item.ticker}</td>
       <td style="padding:5px 3px;border-bottom:1px solid ${S.border};text-align:right;">$${item.price.toLocaleString("en-US", { maximumFractionDigits: 2 })}</td>
       <td style="padding:5px 3px;border-bottom:1px solid ${S.border};text-align:right;">${item.currentPct.toFixed(1)}%</td>
       <td style="padding:5px 3px;border-bottom:1px solid ${S.border};text-align:right;">${item.targetPct.toFixed(1)}%</td>

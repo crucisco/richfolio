@@ -33,6 +33,7 @@ const LONG_DURATION_BOND_ETFS = new Set([
 // ── Types ───────────────────────────────────────────────────────────
 export interface AIBuyRecommendation {
   ticker: string;
+  tickerFullName: string | null;
   action: string;
   confidence: number;
   reason: string;
@@ -126,9 +127,10 @@ function buildPrompt(
     const ticker = item.ticker.toUpperCase();
     const isShortBond = SHORT_DURATION_BOND_ETFS.has(ticker);
     const isLongBond = LONG_DURATION_BOND_ETFS.has(ticker);
+    const fullName = item.tickerFullName || item.ticker;
 
     const lines = [
-      `${item.ticker}:`,
+      `${item.ticker} (${fullName}):`,
       isShortBond ? `  Asset type: SHORT-DURATION BOND ETF (1-5 year, ~2% price range — apply framework 12a)` : null,
       isLongBond ? `  Asset type: LONG/INTERMEDIATE-DURATION BOND ETF (rate-sensitive, can rally on rate cuts — apply framework 12b)` : null,
       `  Price: $${item.price.toFixed(2)}`,
@@ -222,6 +224,7 @@ TICKER DATA:
 ${tickerSummaries.join("\n\n")}
 
 INSTRUCTIONS:
+0. IMPORTANT: When writing reasons and discussing tickers, use the full company/ETF name provided in parentheses, not generic phrases like "This ETF" or "The stock". Always refer to tickers by their full name when appropriate (e.g., "Microsoft is oversold" instead of "This stock is oversold").
 1. Only recommend tickers that are in the target portfolio (target > 0%).
 2. Prioritize tickers that have BOTH allocation need AND good entry price. A small gap with excellent valuation (low P/E, near 52w low) should rank ABOVE a large gap with poor valuation (high P/E, near 52w high).
 3. Consider news sentiment — negative news may mean a buying opportunity (contrarian) or genuine risk.
@@ -351,6 +354,12 @@ export async function aiAnalyze(
     const recommendations = JSON.parse(
       response.text ?? "[]"
     ) as AIBuyRecommendation[];
+
+    // Enrich with tickerFullName from allocation report
+    const tickerFullNameMap = new Map(report.items.map((item) => [item.ticker, item.tickerFullName]));
+    for (const rec of recommendations) {
+      rec.tickerFullName = tickerFullNameMap.get(rec.ticker) ?? null;
+    }
 
     // Hard cap: short-duration bond ETFs can never be STRONG BUY (no capital appreciation upside)
     for (const rec of recommendations) {
