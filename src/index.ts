@@ -9,7 +9,7 @@ import { sendBrief } from "./email.js";
 import { sendTelegramBrief, sendWeeklyTelegram, sendIntradayTelegram, sendRefreshTelegram } from "./telegram.js";
 import { getLatestPrice } from "./fetchPrices.js";
 import { sendWeeklyBrief } from "./weeklyEmail.js";
-import { saveBaseline, loadBaseline } from "./state.js";
+import { saveBaseline, loadBaseline, loadReasoningHistory, saveReasoningHistory } from "./state.js";
 import { compareWithBaseline } from "./intradayCompare.js";
 import { sendIntradayAlert, sendRefreshEmail } from "./intradayEmail.js";
 import { fetchDetailedAnalyses } from "./detailedAnalysis.js";
@@ -251,17 +251,19 @@ try {
       fetchNews(tickers, prices),
       fetchTechnicals(tickers),
     ]);
-    const aiRecs = await aiAnalyze(report, prices, news, technicals, macroContext);
+    const reasoningHistory = loadReasoningHistory();
+    const aiRecs = await aiAnalyze(report, prices, news, technicals, macroContext, reasoningHistory);
 
     // Generate detailed analysis + "More Details" URLs for STRONG BUY tickers
     await enrichStrongBuysWithAnalysis(aiRecs, prices, technicals, report, macroContext);
 
-    // Save morning baseline for intraday comparison
+    // Save morning baseline + reasoning history
     if (aiRecs.length > 0) {
       const priceMap: Record<string, number> = {};
       for (const item of report.items) {
         priceMap[item.ticker] = item.price;
       }
+      saveReasoningHistory(aiRecs, priceMap);
       saveBaseline({
         timestamp: new Date().toISOString(),
         date: new Date().toISOString().slice(0, 10),
@@ -270,9 +272,9 @@ try {
       });
     }
 
-    await sendBrief(report, news, aiRecs, technicals);
+    await sendBrief(report, news, aiRecs, technicals, prices);
     try {
-      await sendTelegramBrief(report, news, aiRecs, technicals);
+      await sendTelegramBrief(report, news, aiRecs, technicals, prices);
     } catch (err) {
       console.error("Telegram send failed:", (err as Error).message);
     }
