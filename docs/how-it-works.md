@@ -14,12 +14,13 @@ Richfolio is a single-pipeline system — no API server, no database, no dashboa
 
 ```
 CONFIG_JSON variable + GitHub Secrets
-  → fetchPrices (Yahoo Finance: prices, P/E, 52w range, beta, dividends, ETF holdings, fundamentals)
-  → fetchTechnicals (Yahoo Finance chart: SMA50, SMA200, RSI, MACD, Bollinger Bands, momentum, volume change)
-  → fetchNews (NewsAPI: top headlines per ticker)
+  → fetchPrices (Yahoo Finance: prices, P/E, 52w range, beta, dividends, ETF holdings, fundamentals, earnings calendar)
+  → fetchTechnicals (Yahoo Finance chart: SMA50, SMA200, RSI, MACD, Bollinger Bands, ATR, Stochastic, OBV, momentum)
+  → fetchNews (NewsAPI: top headlines per ticker + Gemini sentiment scoring)
   → analyze (allocation gaps, P/E signals, overlap discounts, portfolio metrics)
-  → aiAnalyze (Gemini: buy recs + confidence + limit prices + value ratings + bottom signals)
-  → email + telegram (deliver daily brief with value ratings, bottom signals, technicals)
+  → aiAnalyze (Gemini two-stage Think/Plan: Stage 1 Observe → Stage 2 Decide + reasoning history)
+  → guards (post-AI validation: earnings guard, STRONG BUY criteria, bond cap, confidence/value sanity)
+  → email + telegram (deliver daily brief with value ratings, bottom signals, technicals, earnings badges)
 ```
 
 Weekly mode (`--weekly`) skips news, technicals, and AI, producing a focused rebalancing report.
@@ -34,14 +35,15 @@ Intraday mode (`--intraday`) re-fetches prices and technicals, re-runs AI (skipp
 src/
 ├── config.ts          # Typed loader for CONFIG_JSON variable + GitHub Secrets
 ├── index.ts           # Entry point — parses --weekly/--intraday flags, wires modules
-├── fetchPrices.ts     # Yahoo Finance via yahoo-finance2 (instance-based v3 API) + fundamentals
-├── fetchTechnicals.ts # Yahoo Finance chart: SMA50, SMA200, RSI, MACD, Bollinger Bands, momentum, volume change
-├── fetchNews.ts       # NewsAPI with ticker-to-company-name mapping
+├── fetchPrices.ts     # Yahoo Finance via yahoo-finance2 (instance-based v3 API) + fundamentals + earnings calendar
+├── fetchTechnicals.ts # Yahoo Finance chart: SMA50, SMA200, RSI, MACD, Bollinger Bands, ATR, Stochastic, OBV
+├── fetchNews.ts       # NewsAPI with ticker-to-company-name mapping + Gemini sentiment scoring
 ├── analyze.ts         # Core analysis: gaps, P/E signals, overlap, portfolio metrics
-├── aiAnalysis.ts      # Gemini prompt builder + JSON response parser + value ratings + bottom signals
+├── aiAnalysis.ts      # Two-stage Gemini Think/Plan prompt builder + JSON response parser + retry logic
+├── guards.ts          # Post-AI validation pipeline: 6 sequential safety checks
 ├── detailedAnalysis.ts# Gemini 2.5 Flash: detailed buy thesis + risk analysis for STRONG BUY tickers
 ├── analysisUrl.ts     # Compress analysis data into URL hash for the GitHub Pages analysis page
-├── state.ts           # Morning baseline save/load for intraday comparison
+├── state.ts           # Morning baseline save/load for intraday comparison + 7-day reasoning history
 ├── intradayCompare.ts # Compare current AI recs vs morning baseline
 ├── email.ts           # Daily HTML email template + Resend delivery
 ├── intradayEmail.ts   # Intraday alert email template + Resend delivery
@@ -49,7 +51,7 @@ src/
 └── telegram.ts        # Telegram Bot API delivery (daily + intraday + weekly formatters)
 ```
 
-Each module is independent — they communicate through typed interfaces (`QuoteData`, `TechnicalData`, `AllocationItem`, `AllocationReport`, `AIBuyRecommendation`, `IntradayAlert`). `QuoteData` includes fundamental data (ROE, debt/equity, FCF, margins, growth) from Yahoo's `financialData` module. `TechnicalData` includes MACD (crossover + histogram), Bollinger Bands (%B, bandwidth, squeeze), and volume change (7d vs 30d) for bottom-fishing detection.
+Each module is independent — they communicate through typed interfaces (`QuoteData`, `TechnicalData`, `AllocationItem`, `AllocationReport`, `AIBuyRecommendation`, `IntradayAlert`, `TickerObservation`). `QuoteData` includes fundamental data (ROE, debt/equity, FCF, margins, growth) from Yahoo's `financialData` module, plus earnings calendar data (next earnings date, days to earnings). `TechnicalData` includes MACD (crossover + histogram), Bollinger Bands (%B, bandwidth, squeeze), ATR (volatility), Stochastic (%K/%D), OBV trend (accumulation/distribution), and volume change (7d vs 30d) for bottom-fishing detection. `TickerObservation` is the intermediate output from the Think stage, containing structured signals, risk flags, and summaries.
 
 ---
 
@@ -113,15 +115,22 @@ Richfolio fetches ~250 days of daily OHLCV data via `yahooFinance.chart()` and c
    - **Bullish** — price > SMA50, SMA50 > SMA200, RSI > 40
    - **Bearish** — price < SMA50, SMA50 < SMA200, RSI < 60
    - **Neutral** — mixed signals
-7. **Golden/Death cross** — SMA50 crossing above (golden) or below (death) SMA200
-8. **Recent lows** — minimum price in last 7 and 30 trading days (support levels)
-9. **Volume change** — 7-day average volume vs prior 30-day average (used by the bottom-fishing model to detect selling exhaustion)
+7. **ATR(14)** — Average True Range with Wilder's smoothing. Reports absolute value and % of price. ATR% > 3% = high volatility (widen limit orders), ATR% < 1% = low volatility (tighter limits). Requires 15+ data points
+8. **Stochastic Oscillator** — %K(14) with %D(3) SMA smoothing. %K < 20 = oversold confirmation (added to momentum signals for STRONG BUY criteria), %K > 80 = overbought. Requires 16+ data points
+9. **OBV trend** — On-Balance Volume with 10-day linear regression slope normalized by average volume. Reports direction: rising (accumulation), falling (distribution), or flat. Absolute OBV is meaningless across tickers. Requires 11+ data points
+10. **Golden/Death cross** — SMA50 crossing above (golden) or below (death) SMA200
+11. **Recent lows** — minimum price in last 7 and 30 trading days (support levels)
+12. **Volume change** — 7-day average volume vs prior 30-day average (used by the bottom-fishing model to detect selling exhaustion)
 
 Tickers with fewer than 50 data points are gracefully skipped. All indicators are computed from existing chart data — zero extra API calls.
 
-### AI Scoring
+### AI Scoring (Two-Stage Think/Plan)
 
-The Gemini prompt includes all data points per ticker: price, P/E ratios, 52-week position, allocation gap, dividend yield, beta, ETF overlap, technical indicators (MAs, RSI, MACD, Bollinger Bands, momentum, volume change), fundamental data (ROE, debt/equity, FCF, margins, growth, analyst targets), and recent news headlines. The AI applies two structured analytical frameworks with explicit indicator conflict resolution rules and returns:
+Richfolio uses a two-stage AI framework inspired by [OpenAlice](https://github.com/TraderAlice/OpenAlice)'s cognitive architecture:
+
+**Stage 1 — Observe (Think):** The Gemini prompt receives all data points per ticker — price, P/E ratios, 52-week position, allocation gap, dividend yield, beta, ETF overlap, technical indicators (MAs, RSI, MACD, Bollinger Bands, ATR, Stochastic, OBV, momentum, volume change), fundamental data (ROE, debt/equity, FCF, margins, growth, analyst targets), earnings calendar, macro environment, and recent news headlines with sentiment scores. The AI extracts structured observations: which price-level signals are present, which momentum signals are active, risk flags, summaries, and news sentiment. No action recommendations at this stage.
+
+**Stage 2 — Decide (Plan):** A separate Gemini call receives the structured observations from Stage 1, the decision rules, gap amounts, macro context, and 7-day reasoning history. Because it works with pre-digested observations (not raw numbers), it applies the STRONG BUY criteria more consistently. The AI returns:
 
 - **Action**: STRONG BUY, BUY, HOLD, or WAIT
 - **Confidence**: 0–100%
@@ -142,7 +151,9 @@ The AI evaluates four bottom indicators for every ticker (stocks, ETFs, and cryp
 
 Technical indicators further refine the AI's confidence — a bullish momentum signal with oversold RSI strengthens a buy case, while bearish signals or overbought RSI weaken it. The AI follows an explicit **indicator conflict resolution hierarchy**: MACD is trusted in trending markets, Bollinger Bands in range-bound markets. When both agree (e.g., bullish MACD crossover + bounce off lower Bollinger Band), confidence is boosted 5–10 points. A Bollinger Squeeze with a simultaneous MACD crossover is treated as the strongest entry signal (confidence boost 10–15 points). When they disagree (e.g., bullish MACD but %B near upper band), confidence is reduced to avoid overextended entries.
 
-If Gemini is unavailable, the system falls back to gap-based ranking (largest allocation gap first).
+After the AI returns recommendations, the **guard validation pipeline** (`guards.ts`) runs 6 sequential checks: bond ETF cap, earnings proximity, STRONG BUY criteria enforcement, max 2 STRONG BUY, confidence sanity, and buy value sanity. Guards catch cases where the AI ignores prompt instructions and serve as a programmatic safety net.
+
+If Gemini is unavailable, the system falls back to gap-based ranking (largest allocation gap first). Transient Gemini errors (503/429) are automatically retried up to 2 times with 5s/10s backoff before falling back.
 
 ### Detailed Analysis Page (STRONG BUY Only)
 
