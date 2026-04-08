@@ -2,13 +2,21 @@ name: Portfolio Monitor
 
 on:
   schedule:
-    # Daily morning: 10pm UTC = 8am AEST (next day)
-    - cron: "0 22 * * *"
-    # Intraday checks: weekdays only (Mon-Fri)
-    - cron: "0 0 * * 1-5"    # 10am AEST
-    - cron: "0 2 * * 1-5"    # 12pm AEST
-    - cron: "0 4 * * 1-5"    # 2pm AEST
-    - cron: "0 6 * * 1-5"    # 4pm AEST
+    # Enable/disable according to daylight savings time
+    # Daily morning: 8am UTC (next day)
+    # - cron: "0 8 * * *" 
+    # British Summer Time: 7am BST = 8am UTC
+    - cron: "0 7 * * *"
+    # Intraday checks: weekdays only (Mon-Fri) - UTC
+    # - cron: "0 10 * * 1-5"    # 10am UTC
+    # - cron: "0 12 * * 1-5"    # 12pm UTC
+    # - cron: "0 14 * * 1-5"    # 2pm UTC
+    # - cron: "0 16 * * 1-5"    # 4pm UTC
+    # British Summer Time:
+    - cron: "0 9 * * 1-5"    # 10am BST/9am UTC
+    - cron: "0 11 * * 1-5"    # 12pm BST/11am UTC
+    - cron: "0 13 * * 1-5"    # 2pm BST/1pm UTC
+    - cron: "0 15 * * 1-5"    # 4pm BST/3pm UTC
   workflow_dispatch:
     inputs:
       mode:
