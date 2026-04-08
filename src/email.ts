@@ -4,6 +4,7 @@ import type { AllocationItem, AllocationReport } from "./analyze.js";
 import type { AIBuyRecommendation } from "./aiAnalysis.js";
 import type { NewsItem } from "./fetchNews.js";
 import type { TechnicalData } from "./fetchTechnicals.js";
+import type { QuoteData } from "./fetchPrices.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -78,6 +79,12 @@ function valueRatingBadge(rating: string | undefined): string {
   return `<span style="background:${color}22;color:${color};padding:1px 6px;border-radius:3px;font-size:10px;font-weight:bold;margin-left:6px;">Value ${rating}</span>`;
 }
 
+function earningsBadge(daysToEarnings: number | null): string {
+  if (daysToEarnings == null || daysToEarnings > 14) return "";
+  const color = daysToEarnings <= 3 ? S.red : daysToEarnings <= 7 ? S.yellow : S.muted;
+  return `<span style="background:${color}22;color:${color};padding:1px 6px;border-radius:3px;font-size:10px;font-weight:bold;margin-left:6px;">earnings ${daysToEarnings}d</span>`;
+}
+
 // ── Technical Insight (STRONG BUY + BUY with extras) ────────────────
 function buildTechnicalInsight(rec: AIBuyRecommendation, tech: TechnicalData | undefined): string {
   const hasExtras = (rec.valueRating && rec.valueRating !== "") || (rec.bottomSignal && rec.bottomSignal !== "");
@@ -135,7 +142,7 @@ function buildTechnicalInsight(rec: AIBuyRecommendation, tech: TechnicalData | u
 }
 
 // ── AI Recommendations Section ──────────────────────────────────────
-function buildAISection(aiRecs: AIBuyRecommendation[], technicals: Record<string, TechnicalData> = {}): string {
+function buildAISection(aiRecs: AIBuyRecommendation[], technicals: Record<string, TechnicalData> = {}, priceData: Record<string, QuoteData> = {}): string {
   const actionable = aiRecs.filter(
     (r) => r.action === "STRONG BUY" || r.action === "BUY"
   );
@@ -153,7 +160,7 @@ function buildAISection(aiRecs: AIBuyRecommendation[], technicals: Record<string
   <div style="padding:10px 0;border-bottom:1px solid ${S.border};">
     <div style="margin-bottom:4px;">
       <span style="font-weight:bold;font-size:14px;color:#fff;" title="${rec.tickerFullName || rec.ticker}">${rec.ticker}</span>
-      &nbsp;${actionBadge(rec.action)}${valueRatingBadge(rec.valueRating)}
+      &nbsp;${actionBadge(rec.action)}${valueRatingBadge(rec.valueRating)}${earningsBadge(priceData[rec.ticker]?.daysToEarnings ?? null)}
       &nbsp;${confidenceBar(rec.confidence)}
       ${rec.suggestedBuyValue > 0 ? `<span style="float:right;font-weight:bold;color:#fff;">${fmt$(rec.suggestedBuyValue)}</span>` : ""}
     </div>
@@ -215,7 +222,8 @@ export function buildEmailHtml(
   report: AllocationReport,
   news: Record<string, NewsItem[]>,
   aiRecs: AIBuyRecommendation[] = [],
-  technicals: Record<string, TechnicalData> = {}
+  technicals: Record<string, TechnicalData> = {},
+  priceData: Record<string, QuoteData> = {}
 ): string {
   const date = new Date().toLocaleDateString("en-AU", {
     weekday: "long",
@@ -228,7 +236,7 @@ export function buildEmailHtml(
 
   // Use AI section if available, otherwise fallback to gap-based
   const buysSection = aiRecs.length > 0
-    ? buildAISection(aiRecs, technicals)
+    ? buildAISection(aiRecs, technicals, priceData)
     : buildFallbackBuysSection(report);
 
   return `<!DOCTYPE html>
@@ -331,9 +339,10 @@ export async function sendBrief(
   report: AllocationReport,
   news: Record<string, NewsItem[]>,
   aiRecs: AIBuyRecommendation[] = [],
-  technicals: Record<string, TechnicalData> = {}
+  technicals: Record<string, TechnicalData> = {},
+  priceData: Record<string, QuoteData> = {}
 ): Promise<void> {
-  const html = buildEmailHtml(report, news, aiRecs, technicals);
+  const html = buildEmailHtml(report, news, aiRecs, technicals, priceData);
 
   const { error } = await resend.emails.send({
     from: "Richfolio <onboarding@resend.dev>",

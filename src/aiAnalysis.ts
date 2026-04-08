@@ -3,6 +3,8 @@ import type { AllocationReport } from "./analyze.js";
 import type { QuoteData } from "./fetchPrices.js";
 import type { NewsItem } from "./fetchNews.js";
 import type { TechnicalData } from "./fetchTechnicals.js";
+import { validateRecommendations } from "./guards.js";
+import { formatReasoningContext, type ReasoningHistory } from "./state.js";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
@@ -45,7 +47,81 @@ export interface AIBuyRecommendation {
   analysisUrl?: string;
 }
 
-// ── Schema for structured Gemini output ─────────────────────────────
+// ── Observation schema (Stage 1: Think — parse data into structured observations) ──
+const observationSchema = {
+  type: Type.ARRAY,
+  items: {
+    type: Type.OBJECT,
+    properties: {
+      ticker: {
+        type: Type.STRING,
+        description: "The ticker symbol",
+      },
+      priceLevelSignals: {
+        type: Type.ARRAY,
+        items: { type: Type.STRING },
+        description:
+          "Price-level signals present: e.g. 'P/E below historical avg', '52w position < 30%', 'price below 200MA'. Empty array if none.",
+      },
+      momentumSignals: {
+        type: Type.ARRAY,
+        items: { type: Type.STRING },
+        description:
+          "Momentum signals present: e.g. 'RSI < 35', 'bullish MACD crossover', 'Bollinger %B < 0.15'. Empty array if none.",
+      },
+      riskFlags: {
+        type: Type.ARRAY,
+        items: { type: Type.STRING },
+        description:
+          "Risk flags: e.g. 'bearish MACD divergence', 'overbought RSI > 70', 'near 52w high', 'death cross'. Empty array if none.",
+      },
+      valueSummary: {
+        type: Type.STRING,
+        description:
+          "1-sentence valuation assessment referencing P/E, 52w position, and fundamental data",
+      },
+      technicalSummary: {
+        type: Type.STRING,
+        description:
+          "1-sentence technical assessment referencing MA, RSI, MACD, Bollinger, momentum",
+      },
+      newsSentiment: {
+        type: Type.STRING,
+        description:
+          "Overall news sentiment: 'positive', 'negative', 'neutral', 'mixed', or 'none'",
+      },
+      allocationContext: {
+        type: Type.STRING,
+        description:
+          "1-sentence allocation context: gap %, direction, and dollar amount needed",
+      },
+    },
+    propertyOrdering: [
+      "ticker",
+      "priceLevelSignals",
+      "momentumSignals",
+      "riskFlags",
+      "valueSummary",
+      "technicalSummary",
+      "newsSentiment",
+      "allocationContext",
+    ],
+  },
+};
+
+// Observation type returned by Stage 1
+interface TickerObservation {
+  ticker: string;
+  priceLevelSignals: string[];
+  momentumSignals: string[];
+  riskFlags: string[];
+  valueSummary: string;
+  technicalSummary: string;
+  newsSentiment: string;
+  allocationContext: string;
+}
+
+// ── Decision schema (Stage 2: Plan — decide actions from observations) ──
 const responseSchema = {
   type: Type.ARRAY,
   items: {
@@ -120,8 +196,12 @@ function buildPrompt(
   const tickerSummaries = report.items.map((item) => {
     const quote = priceData[item.ticker];
     const tech = technicals[item.ticker];
-    const headlines = (news[item.ticker] || [])
-      .map((n) => `"${n.title}" (${n.source})`)
+    const newsItems = news[item.ticker] || [];
+    const headlines = newsItems
+      .map((n) => {
+        const tags = n.sentiment && n.impact ? ` [${n.sentiment}, ${n.impact} impact]` : "";
+        return `"${n.title}" (${n.source})${tags}`;
+      })
       .join("; ");
 
     const ticker = item.ticker.toUpperCase();
@@ -153,6 +233,13 @@ function buildPrompt(
       })(),
       `  Dividend yield: ${item.dividendYield != null ? (item.dividendYield * 100).toFixed(2) + "%" : "N/A"}`,
       `  Beta: ${item.beta?.toFixed(2) ?? "N/A"}`,
+      (() => {
+        const days = quote?.daysToEarnings;
+        if (days == null) return `  Earnings: none upcoming`;
+        const dateStr = quote?.earningsDate ? quote.earningsDate.toISOString().split("T")[0] : "unknown";
+        const warning = days <= 3 ? " ⚠ IMMINENT" : days <= 7 ? " ⚠ SOON" : "";
+        return `  Earnings: in ${days} days (${dateStr})${warning}`;
+      })(),
       `  Current allocation: ${item.currentPct.toFixed(1)}% (target: ${item.targetPct.toFixed(1)}%, gap: ${item.gapPct > 0 ? "+" : ""}${item.gapPct.toFixed(1)}%)`,
       item.suggestedBuyValue > 0 ? `  Calculated gap amount: $${item.suggestedBuyValue.toFixed(0)} (full amount needed to close allocation gap)` : null,
       item.overlapDiscount > 0 ? `  ETF overlap discount: -$${item.overlapDiscount.toFixed(0)} (${item.overlapPct.toFixed(0)}% of gap covered by held stocks)` : null,
@@ -174,6 +261,21 @@ function buildPrompt(
       // Bollinger Bands
       if (tech.bollMiddle != null) {
         lines.push(`    Bollinger Bands: $${tech.bollLower} / $${tech.bollMiddle} / $${tech.bollUpper} (%B=${tech.bollPercentB}, BW=${tech.bollBandwidth})${tech.bollSqueeze ? " (SQUEEZE — low volatility, breakout likely)" : ""}`);
+      }
+      // ATR
+      if (tech.atr14 != null) {
+        const volLevel = tech.atrPercent! > 3 ? "high volatility — widen limit orders" : tech.atrPercent! < 1 ? "low volatility — tighter limits" : "moderate volatility";
+        lines.push(`    ATR(14): $${tech.atr14} (${tech.atrPercent}% of price — ${volLevel})`);
+      }
+      // Stochastic
+      if (tech.stochK != null) {
+        const stochLevel = tech.stochK < 20 ? " ← OVERSOLD" : tech.stochK > 80 ? " ← OVERBOUGHT" : "";
+        lines.push(`    Stochastic: %K=${tech.stochK}, %D=${tech.stochD} (<20 oversold, >80 overbought)${stochLevel}`);
+      }
+      // OBV
+      if (tech.obvTrend != null) {
+        const obvLabel = tech.obvTrend === "rising" ? "accumulation" : tech.obvTrend === "falling" ? "distribution" : "neutral";
+        lines.push(`    OBV trend: ${tech.obvTrend} (${obvLabel})`);
       }
       lines.push(`    7-day low: $${tech.recentLow7d}, 30-day low: $${tech.recentLow30d}`);
       if (tech.volumeChange7d != null) {
@@ -208,7 +310,19 @@ function buildPrompt(
       }
     }
 
-    lines.push(headlines ? `  Recent news: ${headlines}` : `  Recent news: none`);
+    if (headlines) {
+      lines.push(`  Recent news: ${headlines}`);
+      // Compute overall sentiment from individual articles
+      const sentiments = newsItems.filter(n => n.sentiment).map(n => n.sentiment!);
+      if (sentiments.length > 0) {
+        const bullish = sentiments.filter(s => s === "bullish").length;
+        const bearish = sentiments.filter(s => s === "bearish").length;
+        const overall = bullish > bearish ? "bullish" : bearish > bullish ? "bearish" : bullish === bearish && bullish > 0 ? "mixed" : "neutral";
+        lines.push(`  Overall news sentiment: ${overall}`);
+      }
+    } else {
+      lines.push(`  Recent news: none`);
+    }
 
     return lines.filter(Boolean).join("\n");
   });
@@ -243,6 +357,7 @@ INSTRUCTIONS:
       - RSI < 35
       - Bullish MACD crossover
       - Price near/below lower Bollinger Band (%B < 0.15)
+      - Stochastic %K < 20 (oversold confirmation)
       CRITICAL RULE: 2 momentum signals alone (e.g. RSI + Bollinger) are NOT sufficient
       for STRONG BUY. A brief sharp dip can trigger both while the price is still near
       its annual highs. If 52-week position > 60%, the "near low" signal does NOT apply.
@@ -320,7 +435,161 @@ INSTRUCTIONS:
       - WAIT when: price near 52-week high (rates already fell, upside is limited)
       - Focus: allocation gap, 52-week position (proxy for rate cycle position), yield, duration
       - Framing: "Long-duration bond ETF near 52w low with X% gap; elevated rates suggest
-        potential capital gains if rates decline" NOT "oversold RSI signals rebound"`;
+        potential capital gains if rates decline" NOT "oversold RSI signals rebound"
+13. EARNINGS PROXIMITY GUARD:
+   - If earnings are within 7 days: Cap at BUY (never STRONG BUY). Note "earnings in X days" in the reason.
+   - If earnings are within 3 days: Cap at HOLD. The risk/reward of holding through earnings is too asymmetric for a buy recommendation.
+   - If no earnings date is shown, ignore this rule.`;
+}
+
+// ── Stage 1: Observation prompt (Think — parse data, no decisions) ──
+function buildObservationPrompt(
+  report: AllocationReport,
+  priceData: Record<string, QuoteData>,
+  news: Record<string, NewsItem[]>,
+  technicals: Record<string, TechnicalData> = {},
+  macroContext: string = ""
+): string {
+  // Reuse the same data block from buildPrompt
+  const dataBlock = buildPrompt(report, priceData, news, technicals, macroContext);
+  // Strip the INSTRUCTIONS section — we'll replace it with observation-only instructions
+  const dataOnly = dataBlock.split("\nINSTRUCTIONS:")[0];
+
+  return `${dataOnly}
+TASK: For each ticker, produce STRUCTURED OBSERVATIONS only. Do NOT recommend any actions (no BUY/SELL/HOLD).
+
+For each ticker, identify:
+1. PRICE-LEVEL SIGNALS — signals that confirm the price is genuinely cheap:
+   - "P/E below historical avg" (if trailing P/E < avg P/E)
+   - "52w position < 30%" (if near annual lows)
+   - "price below 200MA" (if current price < 200-day MA)
+   Only include signals that are actually present in the data. Do not invent signals.
+
+2. MOMENTUM SIGNALS — signals of recent selloff or reversal:
+   - "RSI < 35" (if RSI is below 35)
+   - "bullish MACD crossover" (if MACD just crossed above signal)
+   - "Bollinger %B < 0.15" (if near/below lower band)
+   Only include signals that are actually present in the data.
+
+3. RISK FLAGS — anything that suggests caution:
+   - "overbought RSI > 70" / "near 52w high" / "bearish MACD crossover" / "death cross"
+   - "overvalued P/E" (if P/E significantly above historical average)
+   - Any bearish divergence or confluence of negative signals
+
+4. VALUE SUMMARY — 1 sentence summarizing valuation (reference P/E, 52w%, fundamentals)
+
+5. TECHNICAL SUMMARY — 1 sentence summarizing technical setup (reference MA, RSI, MACD, Bollinger)
+
+6. NEWS SENTIMENT — "positive", "negative", "neutral", "mixed", or "none" based on headlines
+
+7. ALLOCATION CONTEXT — 1 sentence on the allocation gap (e.g. "3.2% underweight, needs $1600")
+
+Be precise. Reference actual numbers from the data. Do not editorialize or recommend actions.
+For bond ETFs, note that RSI/MACD/momentum are NOT valid signals — focus on rate environment and allocation gap.`;
+}
+
+// ── Stage 2: Decision prompt (Plan — decide from observations) ──
+function buildDecisionPrompt(
+  observations: TickerObservation[],
+  report: AllocationReport,
+  macroContext: string = "",
+  reasoningContext: string = ""
+): string {
+  const obsText = observations.map((obs) => {
+    const lines = [
+      `${obs.ticker}:`,
+      `  Price-level signals: ${obs.priceLevelSignals.length > 0 ? obs.priceLevelSignals.join(", ") : "none"}`,
+      `  Momentum signals: ${obs.momentumSignals.length > 0 ? obs.momentumSignals.join(", ") : "none"}`,
+      `  Risk flags: ${obs.riskFlags.length > 0 ? obs.riskFlags.join(", ") : "none"}`,
+      `  Valuation: ${obs.valueSummary}`,
+      `  Technical: ${obs.technicalSummary}`,
+      `  News: ${obs.newsSentiment}`,
+      `  Allocation: ${obs.allocationContext}`,
+    ];
+    return lines.join("\n");
+  }).join("\n\n");
+
+  // Find gap amounts from the report for suggestedBuyValue sizing guidance
+  const gapMap: Record<string, number> = {};
+  for (const item of report.items) {
+    gapMap[item.ticker] = item.suggestedBuyValue;
+  }
+
+  return `You are a portfolio analyst making final buy/hold recommendations based on pre-analyzed observations.
+
+${macroContext ? macroContext + "\n" : ""}${reasoningContext ? reasoningContext + "\n\n" : ""}PORTFOLIO CONTEXT:
+- Total portfolio value: $${report.totalCurrentValue.toLocaleString()}
+- Portfolio beta: ${report.portfolioBeta?.toFixed(2) ?? "N/A"}
+- Estimated annual dividends: $${report.estimatedAnnualDividend.toFixed(0)}
+
+GAP AMOUNTS (for suggestedBuyValue sizing):
+${report.items.filter(i => i.suggestedBuyValue > 0).map(i => `  ${i.ticker}: $${i.suggestedBuyValue.toFixed(0)} gap`).join("\n")}
+
+STRUCTURED OBSERVATIONS:
+${obsText}
+
+DECISION RULES:
+1. Only recommend tickers with allocation need (gap > 0%).
+2. Prioritize tickers with BOTH allocation need AND good entry price.
+
+STRONG BUY CRITERIA (ALL must be met):
+a) Allocation gap ≥ 2%
+b) Confidence ≥ 80% BEFORE any indicator boosts
+c) At least 2 entry signals, including AT LEAST 1 price-level signal.
+   CRITICAL: 2 momentum signals alone (e.g. RSI + Bollinger) are NOT sufficient.
+d) No major risk flags (bearish MACD divergence + overbought RSI together = disqualify)
+MAXIMUM 2 tickers can be STRONG BUY. If more qualify, keep top 2 by conviction.
+
+BUY: Has allocation need + reasonable entry, but missing one or more STRONG BUY criteria.
+HOLD: Near target allocation, or entry timing is poor.
+WAIT: Overvalued, risky, or no allocation need.
+
+3. suggestedBuyValue: Use gap amounts above. If gap ≤ $5,000: full amount. If gap > $5,000: 60-100% for high conviction, $3,000-$5,000 first tranche for moderate. $0 for HOLD/WAIT.
+4. suggestedLimitPrice: For BUY/STRONG BUY, set below market at nearest support. $0 for HOLD/WAIT.
+5. INDICATOR CONFLICT RESOLUTION:
+   - MACD is best for trending markets; Bollinger for range-bound.
+   - Both agreeing: +5pts confidence. Disagreeing: -10 to -15pts.
+   - Bollinger Squeeze + MACD crossover: +5-10pts (not alone sufficient for STRONG BUY).
+6. VALUE RATING (stocks only): A (4-5 criteria met), B (3), C (1-2), D (0 or negative growth). Empty for ETFs/crypto.
+   A boosts confidence ~5pts, D reduces ~10pts.
+7. BOTTOM SIGNAL: Flag if 2+ bottom indicators (crypto) or 3+ (stocks/ETFs): RSI<30, volume contraction >20%, price below 200MA, death cross. Bottom signal alone does NOT justify STRONG BUY.
+8. BOND ETFs: Do NOT use RSI/MACD/Bollinger as buy signals.
+   Short-duration: MAX BUY, cap confidence at 65%. NEVER STRONG BUY.
+   Long/intermediate: STRONG BUY valid when gap≥2% + near 52w low + rate environment suggests peak.
+9. Sort by confidence descending.`;
+}
+
+// ── Gemini call with retry for transient errors (503, 429) ─────────
+async function geminiWithRetry(
+  ai: InstanceType<typeof GoogleGenAI>,
+  prompt: string,
+  schema: Record<string, unknown>,
+  maxRetries: number = 2
+): Promise<string> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: schema,
+        },
+      });
+      return response.text ?? "[]";
+    } catch (err) {
+      const msg = (err as Error).message ?? "";
+      const isRetryable = msg.includes("503") || msg.includes("429") || msg.includes("UNAVAILABLE") || msg.includes("RESOURCE_EXHAUSTED");
+      if (isRetryable && attempt < maxRetries) {
+        const delay = (attempt + 1) * 5000; // 5s, 10s
+        console.log(`  ⚠ Gemini ${msg.includes("503") ? "503" : "429"} — retrying in ${delay / 1000}s (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
+      }
+      throw err;
+    }
+  }
+  return "[]"; // unreachable, but satisfies TS
 }
 
 // ── Call Gemini ─────────────────────────────────────────────────────
@@ -329,45 +598,50 @@ export async function aiAnalyze(
   priceData: Record<string, QuoteData>,
   news: Record<string, NewsItem[]>,
   technicals: Record<string, TechnicalData> = {},
-  macroContext: string = ""
+  macroContext: string = "",
+  reasoningHistory: ReasoningHistory = { snapshots: {} }
 ): Promise<AIBuyRecommendation[]> {
   if (!GEMINI_API_KEY) {
     console.warn("GEMINI_API_KEY not set — skipping AI analysis\n");
     return [];
   }
 
-  console.log("Running AI analysis...");
+  console.log("Running AI analysis (Stage 1: Observe)...");
 
   try {
     const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-    const prompt = buildPrompt(report, priceData, news, technicals, macroContext);
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema,
-      },
-    });
+    // ── Stage 1: Think — structured observations ──
+    const obsPrompt = buildObservationPrompt(report, priceData, news, technicals, macroContext);
 
-    const recommendations = JSON.parse(
-      response.text ?? "[]"
-    ) as AIBuyRecommendation[];
+    const obsResponse = await geminiWithRetry(ai, obsPrompt, observationSchema);
 
-    // Enrich with tickerFullName from allocation report
-    const tickerFullNameMap = new Map(report.items.map((item) => [item.ticker, item.tickerFullName]));
-    for (const rec of recommendations) {
-      rec.tickerFullName = tickerFullNameMap.get(rec.ticker) ?? null;
-    }
+    const observations = JSON.parse(
+      obsResponse ?? "[]"
+    ) as TickerObservation[];
 
-    // Hard cap: short-duration bond ETFs can never be STRONG BUY (no capital appreciation upside)
-    for (const rec of recommendations) {
-      if (SHORT_DURATION_BOND_ETFS.has(rec.ticker.toUpperCase()) && rec.action === "STRONG BUY") {
-        rec.action = "BUY";
-        rec.confidence = Math.min(rec.confidence, 65);
+    console.log(`  Stage 1 complete — ${observations.length} observations`);
+    for (const obs of observations) {
+      const signals = [...obs.priceLevelSignals, ...obs.momentumSignals];
+      const flags = obs.riskFlags;
+      if (signals.length > 0 || flags.length > 0) {
+        console.log(`    ${obs.ticker}: ${signals.length} signals, ${flags.length} flags`);
       }
     }
+
+    // ── Stage 2: Plan — decisions from observations ──
+    console.log("Running AI analysis (Stage 2: Decide)...");
+    const reasoningContext = formatReasoningContext(reasoningHistory);
+    const decPrompt = buildDecisionPrompt(observations, report, macroContext, reasoningContext);
+
+    const decResponse = await geminiWithRetry(ai, decPrompt, responseSchema);
+
+    const recommendations = JSON.parse(
+      decResponse ?? "[]"
+    ) as AIBuyRecommendation[];
+
+    // Run guard validation pipeline (bond ETF cap, earnings proximity, STRONG BUY criteria, etc.)
+    validateRecommendations(recommendations, priceData, technicals, report);
 
     // Log summary
     for (const rec of recommendations) {

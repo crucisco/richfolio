@@ -91,6 +91,30 @@ A comprehensive guide on embedding structured analytical "skills" into AI agents
 
 ---
 
+## 🤖 [TraderAlice/OpenAlice](https://github.com/TraderAlice/OpenAlice)
+
+> TypeScript + Claude SDK + Multi-Broker (Alpaca, IBKR, CCXT) + File-based state
+
+An autonomous AI trading agent that executes trades directly, using a multi-layered analysis approach combining technical indicators, fundamental data, and structured AI reasoning. OpenAlice's architecture prioritizes explainability, safety, and auditability over raw automation — every decision is traceable, every guard is configurable, and the entire reasoning process is visible.
+
+**Directly inspired six Richfolio features:**
+
+- **Two-Stage Think/Plan AI Prompting** — OpenAlice's `think` and `plan` tools separate observation from decision-making. Stage 1 records observations about market data; Stage 2 evaluates options and commits to actions. Richfolio adapts this as two sequential Gemini calls: Observe (extract structured signals) → Decide (apply rules to observations). This separation significantly improves STRONG BUY criteria consistency.
+
+- **Post-AI Guard Validation Pipeline** — OpenAlice's `guard-pipeline.ts` runs sequential validation checks (position size limits, cooldown periods, symbol whitelist) before broker execution, with context isolation preventing guards from accidentally triggering trades. Richfolio's `guards.ts` adapts this as 6 post-AI checks: bond ETF cap, earnings proximity, STRONG BUY criteria enforcement, max 2 STRONG BUY, confidence sanity, and buy value sanity.
+
+- **Earnings Calendar Awareness** — OpenAlice's equity research tools (`equity.ts`) check the earnings calendar to avoid holding positions during high-risk events. Richfolio adds `calendarEvents` to the existing Yahoo Finance call and hard-caps recommendations near earnings (≤3d → HOLD, ≤7d → no STRONG BUY).
+
+- **News Sentiment Scoring** — OpenAlice uses structured sentiment analysis in its news pipeline. Richfolio upgrades the Gemini news filter from binary relevance to per-article sentiment (bullish/bearish/neutral) + impact (high/medium/low) scoring.
+
+- **Reasoning Persistence (Brain/Memory)** — OpenAlice's `Brain.ts` tracks cognitive state via Git-like commits with emotional state and working memory that persists across sessions. Richfolio adapts this as a 7-day rolling history of AI reasoning snapshots, showing conviction trends in the decision prompt.
+
+- **Additional Technical Indicators** — OpenAlice's formula-based indicator system (`calculator.ts`) supports ATR, Stochastic, and other indicators beyond basic MACD/RSI. Richfolio adds ATR(14) for volatility context, Stochastic(%K/%D) for oversold/overbought confirmation, and OBV trend for accumulation/distribution detection — all from existing chart data.
+
+**Key architectural insight adopted:** OpenAlice's guard pipeline design principle — guards never see the broker object, only a `GuardContext` — maps cleanly to Richfolio's approach where guards receive recommendation data and report context, not raw API objects. This isolation prevents guard logic from having unintended side effects.
+
+---
+
 ## Design Decisions Informed by These Repos
 
 | Decision | Informed by |
@@ -103,3 +127,10 @@ A comprehensive guide on embedding structured analytical "skills" into AI agents
 | Embed analytical skills as prompt instructions, not separate agents | XinGPT's AI agent skills framework |
 | Value investing A–D rating using fundamental criteria | XinGPT's 美股價值投資框架 concept |
 | Crypto bottom-fishing with multi-indicator detection | XinGPT's 比特幣抄底模型 concept |
+| Two-stage Think/Plan AI prompting (observe then decide) | OpenAlice's think/plan cognitive tools |
+| Post-AI guard validation pipeline (6 sequential checks) | OpenAlice's guard-pipeline with context isolation |
+| Earnings calendar guard (hard cap near earnings) | OpenAlice's equity research earnings awareness |
+| News sentiment scoring (bullish/bearish/neutral per article) | OpenAlice's structured sentiment analysis |
+| 7-day reasoning persistence (conviction trends) | OpenAlice's Brain module (cognitive state as commits) |
+| ATR + Stochastic + OBV indicators | OpenAlice's formula-based indicator extensibility |
+| Gemini retry with exponential backoff | OpenAlice's transient error classification pattern |
