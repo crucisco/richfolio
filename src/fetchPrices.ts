@@ -3,6 +3,7 @@ import { toYahooTicker, fromYahooTicker } from "./config.js";
 
 const yahooFinance = new YahooFinance({
   suppressNotices: ["yahooSurvey"],
+  validation: { logErrors: false },  // Don't throw on schema validation errors (e.g. BIPC missing earningsHistory fields)
 });
 
 // ── Types ───────────────────────────────────────────────────────────
@@ -38,6 +39,9 @@ export interface QuoteData {
   // After-hours / pre-market prices (from Yahoo price module)
   postMarketPrice: number | null;
   preMarketPrice: number | null;
+  // Earnings calendar (from calendarEvents module)
+  earningsDate: Date | null;
+  daysToEarnings: number | null;
 }
 
 // ── Latest price helper (prefers after-hours when available) ────────
@@ -57,7 +61,7 @@ async function fetchOne(yahooTicker: string): Promise<QuoteData | null> {
 
   try {
     const result = await yahooFinance.quoteSummary(yahooTicker, {
-      modules: ["price", "summaryDetail", "defaultKeyStatistics", "earningsHistory", "topHoldings", "financialData"],
+      modules: ["price", "summaryDetail", "defaultKeyStatistics", "earningsHistory", "topHoldings", "financialData", "calendarEvents"],
     });
 
     const price =
@@ -128,6 +132,19 @@ async function fetchOne(yahooTicker: string): Promise<QuoteData | null> {
       recommendationKey: fin?.recommendationKey ?? null,
       postMarketPrice: result.price?.postMarketPrice ?? null,
       preMarketPrice: result.price?.preMarketPrice ?? null,
+      earningsDate: (() => {
+        const dates = result.calendarEvents?.earnings?.earningsDate;
+        if (dates && dates.length > 0) return new Date(dates[0]);
+        return null;
+      })(),
+      daysToEarnings: (() => {
+        const dates = result.calendarEvents?.earnings?.earningsDate;
+        if (dates && dates.length > 0) {
+          const diff = new Date(dates[0]).getTime() - Date.now();
+          return diff > 0 ? Math.ceil(diff / (1000 * 60 * 60 * 24)) : null;
+        }
+        return null;
+      })(),
     };
   } catch (err) {
     console.error(`  ✗ ${configTicker}: fetch failed —`, (err as Error).message);

@@ -47,7 +47,12 @@ export interface NewsItem {
   url: string;
   source: string;
   publishedAt: string;
+  sentiment?: "bullish" | "bearish" | "neutral";
+  impact?: "high" | "medium" | "low";
 }
+
+// Per-ticker overall sentiment (computed from Gemini filter)
+export type TickerSentiment = "bullish" | "bearish" | "neutral" | "mixed" | "none";
 
 interface NewsApiArticle {
   title: string;
@@ -141,10 +146,21 @@ const relevanceSchema = {
     type: Type.OBJECT,
     properties: {
       ticker: { type: Type.STRING },
-      relevantIndices: {
+      articles: {
         type: Type.ARRAY,
-        items: { type: Type.NUMBER },
-        description: "0-based indices of articles that are relevant to this ticker's financial context",
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            index: { type: Type.NUMBER, description: "0-based index of the article" },
+            sentiment: { type: Type.STRING, description: "bullish, bearish, or neutral" },
+            impact: { type: Type.STRING, description: "high, medium, or low" },
+          },
+        },
+        description: "Relevant articles with sentiment and impact assessment",
+      },
+      overallSentiment: {
+        type: Type.STRING,
+        description: "Overall news sentiment for this ticker: bullish, bearish, neutral, or mixed",
       },
     },
   },
@@ -180,37 +196,73 @@ KEEP only headlines about: stock price, earnings, revenue, analyst ratings, mark
 Tickers and their matched headlines:
 ${entries.map((e) => `${e.ticker}:\n${e.headlines.map((h, i) => `  [${i}] ${h}`).join("\n")}`).join("\n\n")}
 
-Return each ticker with the indices of headlines that ARE financially relevant. If none are relevant, return an empty array for that ticker.`;
+For each ticker, return:
+- articles: array of relevant headlines with their index, sentiment (bullish/bearish/neutral), and impact (high/medium/low) on the stock price
+- overallSentiment: the aggregate sentiment across all relevant headlines (bullish/bearish/neutral/mixed)
+If no headlines are relevant, return an empty articles array and "neutral" for overallSentiment.`;
 
   try {
     const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: relevanceSchema,
-      },
-    });
 
-    const filtered = JSON.parse(response.text!) as Array<{
+    // Retry logic for transient Gemini errors (503, 429)
+    let responseText: string | undefined;
+    for (let attempt = 0; attempt <= 2; attempt++) {
+      try {
+        const response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: relevanceSchema,
+          },
+        });
+        responseText = response.text!;
+        break;
+      } catch (retryErr) {
+        const msg = (retryErr as Error).message ?? "";
+        const isRetryable = msg.includes("503") || msg.includes("429") || msg.includes("UNAVAILABLE");
+        if (isRetryable && attempt < 2) {
+          const delay = (attempt + 1) * 5000;
+          console.log(`  ⚠ Gemini news filter ${msg.includes("503") ? "503" : "429"} — retrying in ${delay / 1000}s`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+        throw retryErr;
+      }
+    }
+    if (!responseText) return allNews;
+
+    const filtered = JSON.parse(responseText) as Array<{
       ticker: string;
-      relevantIndices: number[];
+      articles: Array<{ index: number; sentiment: string; impact: string }>;
+      overallSentiment: string;
     }>;
 
     const result: Record<string, NewsItem[]> = {};
+    const sentimentMap: Record<string, TickerSentiment> = {};
     // Start with empty arrays for all tickers
     for (const ticker of Object.keys(allNews)) {
       result[ticker] = [];
     }
-    // Keep only Gemini-approved articles
-    for (const { ticker, relevantIndices } of filtered) {
-      const original = allNews[ticker];
+    // Keep only Gemini-approved articles with sentiment
+    for (const entry of filtered) {
+      const original = allNews[entry.ticker];
       if (!original) continue;
-      result[ticker] = relevantIndices
-        .filter((i) => i >= 0 && i < original.length)
-        .map((i) => original[i]);
+      result[entry.ticker] = entry.articles
+        .filter((a) => a.index >= 0 && a.index < original.length)
+        .map((a) => ({
+          ...original[a.index],
+          sentiment: (["bullish", "bearish", "neutral"].includes(a.sentiment) ? a.sentiment : "neutral") as NewsItem["sentiment"],
+          impact: (["high", "medium", "low"].includes(a.impact) ? a.impact : "medium") as NewsItem["impact"],
+        }));
+      sentimentMap[entry.ticker] = (
+        ["bullish", "bearish", "neutral", "mixed"].includes(entry.overallSentiment)
+          ? entry.overallSentiment
+          : "neutral"
+      ) as TickerSentiment;
     }
+    // Store sentiment map for external access
+    _lastSentimentMap = sentimentMap;
 
     const before = Object.values(allNews).reduce((s, a) => s + a.length, 0);
     const after = Object.values(result).reduce((s, a) => s + a.length, 0);
@@ -223,6 +275,12 @@ Return each ticker with the indices of headlines that ARE financially relevant. 
     console.warn(`  ⚠ Gemini news filter failed, using unfiltered results: ${(err as Error).message}`);
     return allNews;
   }
+}
+
+// ── Sentiment map (populated by Gemini filter) ────────────────────
+let _lastSentimentMap: Record<string, TickerSentiment> = {};
+export function getNewsSentiment(): Record<string, TickerSentiment> {
+  return _lastSentimentMap;
 }
 
 // ── Fetch news for all tickers ──────────────────────────────────────

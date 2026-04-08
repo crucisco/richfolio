@@ -30,7 +30,8 @@ function buildMessage(
   report: AllocationReport,
   news: Record<string, NewsItem[]>,
   aiRecs: AIBuyRecommendation[],
-  technicals: Record<string, TechnicalData> = {}
+  technicals: Record<string, TechnicalData> = {},
+  priceData: Record<string, QuoteData> = {}
 ): string {
   const date = new Date().toLocaleDateString("en-AU", {
     weekday: "long",
@@ -57,9 +58,12 @@ function buildMessage(
     if (actionable.length > 0) {
       lines.push("🤖 <b>AI Recommendations:</b>");
       for (const rec of actionable) {
+        const earningsDays = priceData[rec.ticker]?.daysToEarnings;
+        const earningsTag = earningsDays != null && earningsDays <= 14 ? ` [earnings ${earningsDays}d]` : "";
         lines.push(
           `${actionEmoji(rec.action)} <b>${rec.action} ${rec.ticker}</b> (${rec.confidence}%)` +
           (rec.valueRating ? ` [${rec.valueRating}]` : "") +
+          earningsTag +
           (rec.suggestedBuyValue > 0 ? ` — ${fmt$(rec.suggestedBuyValue)}` : "")
         );
         lines.push(`   <i>${rec.reason}</i>`);
@@ -147,14 +151,15 @@ export async function sendTelegramBrief(
   report: AllocationReport,
   news: Record<string, NewsItem[]>,
   aiRecs: AIBuyRecommendation[] = [],
-  technicals: Record<string, TechnicalData> = {}
+  technicals: Record<string, TechnicalData> = {},
+  priceData: Record<string, QuoteData> = {}
 ): Promise<void> {
   if (!BOT_TOKEN || !CHAT_ID) {
     console.log("TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set — skipping Telegram\n");
     return;
   }
 
-  const message = buildMessage(report, news, aiRecs, technicals);
+  const message = buildMessage(report, news, aiRecs, technicals, priceData);
 
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
   const response = await fetch(url, {

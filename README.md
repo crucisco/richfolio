@@ -40,10 +40,14 @@ What Richfolio does is **monitor your portfolio daily** and help you decide **wh
 
 ## Features
 
-- **AI Buy Recommendations** — Gemini-powered analysis considering valuation, allocation gap, news sentiment, technicals, and risk (with gap-based fallback). STRONG BUY tickers get a **"More Details"** link to a dedicated analysis page with interactive chart, buy thesis, risk analysis, and full metrics
+- **Two-Stage AI Analysis** — Gemini-powered Think/Plan framework: Stage 1 extracts structured observations (signals, risks, summaries), Stage 2 applies decision rules to produce ranked recommendations with confidence scores. Inspired by [OpenAlice](https://github.com/TraderAlice/OpenAlice)'s cognitive architecture. STRONG BUY tickers get a **"More Details"** link to a dedicated analysis page with interactive chart, buy thesis, risk analysis, and full metrics
+- **Earnings Calendar Guard** — automatically detects upcoming earnings dates and caps recommendations (≤3 days → HOLD, ≤7 days → no STRONG BUY) to avoid asymmetric risk
+- **Post-AI Guard Pipeline** — 6 programmatic safety checks validate every AI recommendation before delivery: bond ETF caps, earnings proximity, STRONG BUY criteria enforcement, max 2 STRONG BUY limit, confidence sanity, and buy value sanity
 - **Value Investing Framework** — AI rates individual stocks A–D based on ROE, debt/equity, FCF, earnings growth, and analyst targets (data from Yahoo Finance, zero extra API calls)
 - **Bottom-Fishing Model** — AI detects oversold/accumulation zones for all tickers using RSI, volume contraction, 200MA position, and death cross signals
-- **Technical Momentum Signals** — SMA50, SMA200, RSI(14), MACD (crossover + histogram), Bollinger Bands (%B + squeeze detection), golden/death cross, and momentum classification for each ticker
+- **Technical Momentum Signals** — SMA50, SMA200, RSI(14), MACD (crossover + histogram), Bollinger Bands (%B + squeeze detection), ATR (volatility), Stochastic (%K/%D oversold/overbought), OBV (accumulation/distribution trend), golden/death cross, and momentum classification for each ticker
+- **News Sentiment Scoring** — Gemini scores each headline's sentiment (bullish/bearish/neutral) and impact (high/medium/low), providing per-ticker overall sentiment to the AI analysis
+- **Reasoning Persistence** — 7-day rolling history of AI conviction per ticker, showing the AI how its own recommendations evolved over time to identify trend momentum
 - **Limit Order Prices** — AI-suggested limit order prices based on nearby support levels (moving averages, recent lows, round numbers)
 - **Allocation Gap Analysis** — current vs target %, flagged by priority with suggested buy amounts
 - **Dynamic P/E Signals** — trailing P/E compared against historical averages fetched from Yahoo Finance (no manual benchmarks needed)
@@ -107,17 +111,18 @@ richfolio/
 ├── src/
 │   ├── config.ts          # Typed loader for CONFIG_JSON variable + secrets
 │   ├── index.ts           # Entry point (daily/intraday/weekly mode)
-│   ├── fetchPrices.ts     # Yahoo Finance: price, P/E, 52w, beta, dividends, ETF holdings, fundamentals
-│   ├── fetchTechnicals.ts # Yahoo Finance chart: SMA50, SMA200, RSI, MACD, Bollinger Bands, momentum, volume change
-│   ├── fetchNews.ts       # NewsAPI: headlines per ticker
+│   ├── fetchPrices.ts     # Yahoo Finance: price, P/E, 52w, beta, dividends, ETF holdings, fundamentals, earnings calendar
+│   ├── fetchTechnicals.ts # Yahoo Finance chart: SMA50, SMA200, RSI, MACD, Bollinger Bands, ATR, Stochastic, OBV, momentum
+│   ├── fetchNews.ts       # NewsAPI: headlines per ticker + Gemini sentiment scoring
 │   ├── analyze.ts         # Allocation gaps, P/E signals, overlap discounts
-│   ├── aiAnalysis.ts      # Gemini AI: buy recs, limit prices, value ratings, bottom signals
+│   ├── aiAnalysis.ts      # Gemini AI: two-stage Think/Plan analysis, buy recs, limit prices, value ratings
+│   ├── guards.ts          # Post-AI validation pipeline: 6 sequential safety checks
 │   ├── detailedAnalysis.ts# Gemini 2.5 Flash: detailed buy thesis + risk analysis for STRONG BUY
 │   ├── analysisUrl.ts     # Compress analysis data into URL hash for GitHub Pages
 │   ├── email.ts           # Daily HTML email template + Resend
 │   ├── intradayEmail.ts   # Intraday alert email template
 │   ├── intradayCompare.ts # Compare current vs morning baseline
-│   ├── state.ts           # Morning baseline persistence
+│   ├── state.ts           # Morning baseline persistence + 7-day reasoning history
 │   ├── weeklyEmail.ts     # Weekly rebalancing email template
 │   └── telegram.ts        # Telegram bot delivery (daily/intraday/weekly)
 ├── docs/
@@ -135,12 +140,13 @@ richfolio/
 
 ```
 CONFIG_JSON variable + GitHub Secrets
-  → fetchPrices (Yahoo Finance: prices, P/E, 52w range, beta, dividends, ETF holdings, fundamentals)
-  → fetchTechnicals (Yahoo Finance chart: SMA50, SMA200, RSI, MACD, Bollinger Bands, momentum, volume change)
-  → fetchNews (NewsAPI: top headlines per ticker)
+  → fetchPrices (Yahoo Finance: prices, P/E, 52w range, beta, dividends, ETF holdings, fundamentals, earnings calendar)
+  → fetchTechnicals (Yahoo Finance chart: SMA50, SMA200, RSI, MACD, Bollinger Bands, ATR, Stochastic, OBV, momentum)
+  → fetchNews (NewsAPI: top headlines per ticker + Gemini sentiment scoring)
   → analyze (allocation gaps, P/E signals, overlap discounts, portfolio metrics)
-  → aiAnalyze (Gemini: buy recs + confidence + limit prices + value ratings + bottom signals)
-  → email + telegram (deliver daily brief with value ratings, bottom signals, technicals)
+  → aiAnalyze (Gemini two-stage: Stage 1 Observe → Stage 2 Decide + reasoning history)
+  → guards (post-AI validation: earnings guard, STRONG BUY criteria, bond cap, confidence sanity)
+  → email + telegram (deliver daily brief with value ratings, bottom signals, technicals, earnings badges)
 ```
 
 Weekly mode (`--weekly`) skips news and AI, producing a focused rebalancing report.

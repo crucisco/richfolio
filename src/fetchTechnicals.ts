@@ -31,6 +31,14 @@ export interface TechnicalData {
   bollPercentB: number | null;        // 0 = at lower band, 1 = at upper band
   bollBandwidth: number | null;       // (upper-lower)/middle — volatility measure
   bollSqueeze: boolean;               // bandwidth in bottom 20% of 120-day range
+  // ATR (Average True Range, 14-period) — volatility measure
+  atr14: number | null;
+  atrPercent: number | null;          // ATR as % of current price
+  // Stochastic Oscillator (%K 14, %D 3)
+  stochK: number | null;             // 0-100, <20 oversold, >80 overbought
+  stochD: number | null;             // 3-period SMA of %K
+  // OBV (On-Balance Volume) trend
+  obvTrend: "rising" | "falling" | "flat" | null;
 }
 
 // ── Computation helpers ─────────────────────────────────────────────
@@ -155,6 +163,115 @@ function computeBollinger(closes: number[]): {
   };
 }
 
+function computeATR(
+  quotes: { high: number | null; low: number | null; close: number | null }[],
+  period: number = 14
+): { atr: number; atrPercent: number } | null {
+  // Filter valid OHLC data
+  const valid = quotes.filter(
+    (q): q is { high: number; low: number; close: number } =>
+      q.high != null && q.low != null && q.close != null
+  );
+  if (valid.length < period + 1) return null;
+
+  const trs: number[] = [];
+  for (let i = 1; i < valid.length; i++) {
+    const tr = Math.max(
+      valid[i].high - valid[i].low,
+      Math.abs(valid[i].high - valid[i - 1].close),
+      Math.abs(valid[i].low - valid[i - 1].close)
+    );
+    trs.push(tr);
+  }
+
+  // Wilder's smoothing
+  let atr = trs.slice(0, period).reduce((s, t) => s + t, 0) / period;
+  for (let i = period; i < trs.length; i++) {
+    atr = (atr * (period - 1) + trs[i]) / period;
+  }
+
+  const currentPrice = valid[valid.length - 1].close;
+  return {
+    atr: Math.round(atr * 100) / 100,
+    atrPercent: currentPrice > 0 ? Math.round((atr / currentPrice) * 1000) / 10 : 0,
+  };
+}
+
+function computeStochastic(
+  quotes: { high: number | null; low: number | null; close: number | null }[],
+  kPeriod: number = 14,
+  dPeriod: number = 3
+): { k: number; d: number } | null {
+  const valid = quotes.filter(
+    (q): q is { high: number; low: number; close: number } =>
+      q.high != null && q.low != null && q.close != null
+  );
+  if (valid.length < kPeriod + dPeriod - 1) return null;
+
+  // Compute %K for last dPeriod values to get %D
+  const kValues: number[] = [];
+  for (let i = kPeriod - 1; i < valid.length; i++) {
+    const window = valid.slice(i - kPeriod + 1, i + 1);
+    const lowestLow = Math.min(...window.map((q) => q.low));
+    const highestHigh = Math.max(...window.map((q) => q.high));
+    const range = highestHigh - lowestLow;
+    kValues.push(range > 0 ? ((valid[i].close - lowestLow) / range) * 100 : 50);
+  }
+
+  const currentK = kValues[kValues.length - 1];
+  const dSlice = kValues.slice(-dPeriod);
+  const currentD = dSlice.reduce((s, v) => s + v, 0) / dSlice.length;
+
+  return {
+    k: Math.round(currentK * 10) / 10,
+    d: Math.round(currentD * 10) / 10,
+  };
+}
+
+function computeOBVTrend(
+  quotes: { close: number | null; volume: number | null }[],
+  trendPeriod: number = 10
+): "rising" | "falling" | "flat" | null {
+  const valid = quotes.filter(
+    (q): q is { close: number; volume: number } =>
+      q.close != null && q.volume != null && q.volume > 0
+  );
+  if (valid.length < trendPeriod + 1) return null;
+
+  // Compute OBV series
+  const obv: number[] = [0];
+  for (let i = 1; i < valid.length; i++) {
+    if (valid[i].close > valid[i - 1].close) {
+      obv.push(obv[obv.length - 1] + valid[i].volume);
+    } else if (valid[i].close < valid[i - 1].close) {
+      obv.push(obv[obv.length - 1] - valid[i].volume);
+    } else {
+      obv.push(obv[obv.length - 1]);
+    }
+  }
+
+  // Linear regression slope of last trendPeriod OBV values
+  const recent = obv.slice(-trendPeriod);
+  const n = recent.length;
+  const xMean = (n - 1) / 2;
+  const yMean = recent.reduce((s, v) => s + v, 0) / n;
+  let num = 0;
+  let den = 0;
+  for (let i = 0; i < n; i++) {
+    num += (i - xMean) * (recent[i] - yMean);
+    den += (i - xMean) ** 2;
+  }
+  const slope = den > 0 ? num / den : 0;
+
+  // Normalize slope relative to average volume to determine significance
+  const avgVol = valid.slice(-trendPeriod).reduce((s, q) => s + q.volume, 0) / trendPeriod;
+  const normalizedSlope = avgVol > 0 ? slope / avgVol : 0;
+
+  if (normalizedSlope > 0.1) return "rising";
+  if (normalizedSlope < -0.1) return "falling";
+  return "flat";
+}
+
 // ── Fetch technicals for a single ticker ────────────────────────────
 async function fetchOne(ticker: string): Promise<TechnicalData | null> {
   const yahooTicker = toYahooTicker(ticker);
@@ -234,6 +351,15 @@ async function fetchOne(ticker: string): Promise<TechnicalData | null> {
     // Bollinger Bands
     const bollResult = computeBollinger(closes);
 
+    // ATR
+    const atrResult = computeATR(quotes);
+
+    // Stochastic
+    const stochResult = computeStochastic(quotes);
+
+    // OBV trend
+    const obvTrend = computeOBVTrend(quotes);
+
     return {
       ticker,
       sma50: Math.round(sma50 * 100) / 100,
@@ -257,6 +383,11 @@ async function fetchOne(ticker: string): Promise<TechnicalData | null> {
       bollPercentB: bollResult?.percentB ?? null,
       bollBandwidth: bollResult?.bandwidth ?? null,
       bollSqueeze: bollResult?.squeeze ?? false,
+      atr14: atrResult?.atr ?? null,
+      atrPercent: atrResult?.atrPercent ?? null,
+      stochK: stochResult?.k ?? null,
+      stochD: stochResult?.d ?? null,
+      obvTrend,
     };
   } catch (err) {
     console.error(`  ✗ ${ticker}: chart fetch failed —`, (err as Error).message);
@@ -287,6 +418,9 @@ export async function fetchTechnicals(
           (data.macdHistogram != null ? ` hist${data.macdHistogram > 0 ? "+" : ""}${data.macdHistogram}` : "") +
           (data.bollPercentB != null ? ` %B=${data.bollPercentB}` : "") +
           (data.bollSqueeze ? " 🔸squeeze" : "") +
+          (data.atrPercent != null ? ` ATR${data.atrPercent}%` : "") +
+          (data.stochK != null ? ` Stoch${data.stochK}` : "") +
+          (data.obvTrend != null ? ` OBV:${data.obvTrend}` : "") +
           (data.volumeChange7d != null ? ` vol${data.volumeChange7d > 0 ? "+" : ""}${data.volumeChange7d}%` : "")
       );
     }
