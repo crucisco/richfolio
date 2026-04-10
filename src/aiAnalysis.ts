@@ -417,8 +417,12 @@ INSTRUCTIONS:
       - MAX ACTION IS BUY — NEVER STRONG BUY. There is no meaningful capital appreciation upside.
       - Best time to buy: whenever you have an allocation gap. Entry price barely matters.
       - Focus: allocation gap size and yield competitiveness. Nothing else is material.
+      - CONFIDENCE SCALING (by gap size, not technicals):
+        * Gap ≥ 5%: confidence 70-75% — meaningful underweight, buy now
+        * Gap 3-5%: confidence 60-70% — moderate gap, steady accumulation
+        * Gap 1-3%: confidence 45-55% — small gap, low priority
+        * Gap < 1%: HOLD — essentially on target
       - Framing: "Systematic accumulation to fill X% allocation gap; yield of Y% is acceptable"
-      - Confidence cap: 65%. These are boring by design.
 
    12b. LONG/INTERMEDIATE-DURATION BOND ETFs (marked "LONG/INTERMEDIATE-DURATION BOND ETF"):
       - Intermediate (7-10yr) and long-term (20yr+) funds are RATE-SENSITIVE.
@@ -466,6 +470,8 @@ For each ticker, identify:
    - "RSI < 35" (if RSI is below 35)
    - "bullish MACD crossover" (if MACD just crossed above signal)
    - "Bollinger %B < 0.15" (if near/below lower band)
+   - "Stochastic %K < 20" (if Stochastic is oversold)
+   - "OBV rising" (if accumulation trend detected)
    Only include signals that are actually present in the data.
 
 3. RISK FLAGS — anything that suggests caution:
@@ -492,9 +498,21 @@ function buildDecisionPrompt(
   macroContext: string = "",
   reasoningContext: string = ""
 ): string {
+  // Build key metrics per ticker so the decision stage has actual numbers for limit prices etc.
+  const metricsMap: Record<string, string[]> = {};
+  for (const item of report.items) {
+    const lines: string[] = [];
+    lines.push(`  Price: $${item.price.toFixed(2)}`);
+    if (item.fiftyTwoWeekPercent != null) lines.push(`  52w position: ${Math.round(item.fiftyTwoWeekPercent * 100)}%`);
+    lines.push(`  Gap: ${item.gapPct > 0 ? "+" : ""}${item.gapPct.toFixed(1)}%`);
+    if (item.trailingPE != null) lines.push(`  P/E: ${item.trailingPE.toFixed(1)}`);
+    metricsMap[item.ticker] = lines;
+  }
+
   const obsText = observations.map((obs) => {
     const lines = [
       `${obs.ticker}:`,
+      ...(metricsMap[obs.ticker] ?? []),
       `  Price-level signals: ${obs.priceLevelSignals.length > 0 ? obs.priceLevelSignals.join(", ") : "none"}`,
       `  Momentum signals: ${obs.momentumSignals.length > 0 ? obs.momentumSignals.join(", ") : "none"}`,
       `  Risk flags: ${obs.riskFlags.length > 0 ? obs.riskFlags.join(", ") : "none"}`,
@@ -551,7 +569,8 @@ WAIT: Overvalued, risky, or no allocation need.
    A boosts confidence ~5pts, D reduces ~10pts.
 7. BOTTOM SIGNAL: Flag if 2+ bottom indicators (crypto) or 3+ (stocks/ETFs): RSI<30, volume contraction >20%, price below 200MA, death cross. Bottom signal alone does NOT justify STRONG BUY.
 8. BOND ETFs: Do NOT use RSI/MACD/Bollinger as buy signals.
-   Short-duration: MAX BUY, cap confidence at 65%. NEVER STRONG BUY.
+   Short-duration: MAX BUY. NEVER STRONG BUY. Scale confidence by gap size:
+     gap≥5% → 70-75%, gap 3-5% → 60-70%, gap 1-3% → 45-55%, gap<1% → HOLD.
    Long/intermediate: STRONG BUY valid when gap≥2% + near 52w low + rate environment suggests peak.
 9. Sort by confidence descending.`;
 }

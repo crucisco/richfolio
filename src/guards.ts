@@ -21,7 +21,7 @@ export function validateRecommendations(
   technicals: Record<string, TechnicalData>,
   report: AllocationReport
 ): void {
-  guardBondETFCap(recs);
+  guardBondETFCap(recs, report);
   guardEarningsProximity(recs, priceData);
   guardStrongBuyCriteria(recs, report, technicals);
   guardMaxStrongBuy(recs);
@@ -30,12 +30,39 @@ export function validateRecommendations(
 }
 
 // ── Guard 1: Bond ETF cap ──────────────────────────────────────────
-function guardBondETFCap(recs: AIBuyRecommendation[]): void {
+function guardBondETFCap(recs: AIBuyRecommendation[], report?: AllocationReport): void {
+  const gapMap: Record<string, number> = {};
+  if (report) {
+    for (const item of report.items) {
+      gapMap[item.ticker] = item.gapPct;
+    }
+  }
+
   for (const rec of recs) {
-    if (SHORT_DURATION_BOND_ETFS.has(rec.ticker.toUpperCase()) && rec.action === "STRONG BUY") {
+    if (!SHORT_DURATION_BOND_ETFS.has(rec.ticker.toUpperCase())) continue;
+
+    // Never STRONG BUY short-duration bonds
+    if (rec.action === "STRONG BUY") {
       console.log(`  [guard:bond] ${rec.ticker}: short-duration bond ETF → capping at BUY`);
       rec.action = "BUY";
-      rec.confidence = Math.min(rec.confidence, 65);
+    }
+
+    // Scale confidence by gap size (not technicals)
+    const gap = gapMap[rec.ticker] ?? 0;
+    let maxConfidence: number;
+    if (gap >= 5) maxConfidence = 75;
+    else if (gap >= 3) maxConfidence = 70;
+    else if (gap >= 1) maxConfidence = 55;
+    else maxConfidence = 40; // near target → low confidence
+
+    if (rec.confidence > maxConfidence) {
+      rec.confidence = maxConfidence;
+    }
+
+    // If gap < 1%, downgrade to HOLD
+    if (gap < 1 && rec.action === "BUY") {
+      rec.action = "HOLD";
+      rec.suggestedBuyValue = 0;
     }
   }
 }
@@ -95,19 +122,18 @@ function guardStrongBuyCriteria(
       continue;
     }
 
-    // Check for at least 1 price-level signal (heuristic check from technicals)
+    // Soft check for signal presence — the AI already applies strict criteria,
+    // this guard only catches obvious misses (no signals at all).
+    // We can't perfectly verify P/E signals here without avgPE data.
     if (tech) {
       const priceBelow200MA = tech.sma200 != null && tech.priceVsSma200 != null && tech.priceVsSma200 < 0;
-      const near52wLow = tech.recentLow30d != null; // if we have data, check momentum context
-      // We can't perfectly verify P/E signals here without avgPE, but the gap + confidence
-      // checks catch most false STRONG BUYs. This guard is a safety net, not a replacement.
-      if (!priceBelow200MA && !near52wLow) {
-        // Soft check — only downgrade if no momentum signals either
-        const hasAnyMomentum = tech.rsi14 < 35 || tech.macdCrossover === "bullish" || (tech.bollPercentB != null && tech.bollPercentB < 0.15);
-        if (!hasAnyMomentum) {
-          console.log(`  [guard:criteria] ${rec.ticker}: no price-level or momentum signals → BUY`);
-          rec.action = "BUY";
-        }
+      const hasAnyMomentum = tech.rsi14 < 35 || tech.macdCrossover === "bullish" ||
+        (tech.bollPercentB != null && tech.bollPercentB < 0.15) ||
+        (tech.stochK != null && tech.stochK < 20);
+      // Only downgrade if there are truly NO signals at all
+      if (!priceBelow200MA && !hasAnyMomentum) {
+        console.log(`  [guard:criteria] ${rec.ticker}: no price-level or momentum signals → BUY`);
+        rec.action = "BUY";
       }
     }
   }
