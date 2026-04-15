@@ -457,7 +457,8 @@ function buildObservationPrompt(
   const dataOnly = dataBlock.split("\nINSTRUCTIONS:")[0];
 
   return `${dataOnly}
-TASK: For each ticker, produce STRUCTURED OBSERVATIONS only. Do NOT recommend any actions (no BUY/SELL/HOLD).
+TASK: For EVERY ticker in the portfolio list above, produce STRUCTURED OBSERVATIONS only. Do NOT recommend any actions (no BUY/SELL/HOLD).
+CRITICAL: Return observations for ALL tickers, even if they have no signals. Use empty arrays [] for signals/flags when none are present.
 
 For each ticker, identify:
 1. PRICE-LEVEL SIGNALS — signals that confirm the price is genuinely cheap:
