@@ -431,6 +431,7 @@ TICKER DATA:
 ${tickerSummaries.join("\n\n")}
 
 INSTRUCTIONS:
+0. IMPORTANT: When writing reasons and discussing tickers, use the full company/ETF name provided in parentheses, not generic phrases like "This ETF" or "The stock". Always refer to tickers by their full name when appropriate (e.g., "Microsoft is oversold" instead of "This stock is oversold").
 1. Only recommend tickers that are in the target portfolio (target > 0%).
    When writing the reason field, use the full company/ETF name shown in parentheses next to each ticker (e.g. "Microsoft is oversold" rather than "this stock is oversold"). Do not invent or guess names — only use names that appear in the data.
 2. Prioritize tickers that have BOTH allocation need AND good entry price. A small gap with excellent valuation (low P/E, near 52w low) should rank ABOVE a large gap with poor valuation (high P/E, near 52w high).
