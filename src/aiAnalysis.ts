@@ -642,9 +642,9 @@ ${reasoningContext ? reasoningContext + "\n\n" : ""}PORTFOLIO CONTEXT:
 
 GAP AMOUNTS (for suggestedBuyValue sizing):
 ${report.items
-  .filter((i) => i.suggestedBuyValue > 0)
-  .map((i) => `  ${i.ticker}: ${formatMoney(i.suggestedBuyValue, defaultCurrency)} gap`)
-  .join("\n")}
+      .filter((i) => i.suggestedBuyValue > 0)
+      .map((i) => `  ${i.ticker}: ${formatMoney(i.suggestedBuyValue, defaultCurrency)} gap`)
+      .join("\n")}
 
 STRUCTURED OBSERVATIONS:
 ${obsText}
@@ -784,12 +784,12 @@ export async function aiAnalyze(
       if (rec.action === "STRONG BUY" || rec.action === "BUY") {
         console.log(
           `  ${rec.action} ${rec.ticker} (${rec.confidence}%)` +
-            (rec.valueRating ? ` [${rec.valueRating}]` : "") +
-            (rec.bottomSignal ? ` [${rec.bottomSignal}]` : "") +
-            ` — ${rec.reason}` +
-            (rec.suggestedLimitPrice
-              ? ` [limit: ${rec.suggestedLimitPrice} ${rec.originalCurrency}]`
-              : ""),
+          (rec.valueRating ? ` [${rec.valueRating}]` : "") +
+          (rec.bottomSignal ? ` [${rec.bottomSignal}]` : "") +
+          ` — ${rec.reason}` +
+          (rec.suggestedLimitPrice
+            ? ` [limit: ${rec.suggestedLimitPrice} ${rec.originalCurrency}]`
+            : ""),
         );
       }
     }
