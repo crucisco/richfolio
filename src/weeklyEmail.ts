@@ -1,7 +1,7 @@
 import { Resend } from "resend";
-import { recipientEmail } from "./config.js";
+import { recipientEmail, defaultCurrency } from "./config.js";
 import type { AllocationItem, AllocationReport } from "./analyze.js";
-import { escapeHtmlAttr } from "./util.js";
+import { escapeHtmlAttr, formatMoney } from "./util.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -20,9 +20,7 @@ const S = {
 } as const;
 
 // ── Helpers ─────────────────────────────────────────────────────────
-function fmt$(n: number): string {
-  return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-}
+const fmt$ = (n: number) => formatMoney(n, defaultCurrency);
 
 function fmtPct(n: number): string {
   return (n >= 0 ? "+" : "") + n.toFixed(1) + "%";
@@ -43,6 +41,7 @@ export function buildWeeklyEmailHtml(report: AllocationReport): string {
     day: "numeric",
   });
 
+  const hasCrossCurrency = report.items.some((i) => i.originalCurrency !== defaultCurrency);
   const onTarget = report.items.filter((i) => Math.abs(i.gapPct) <= 1 && i.targetPct > 0);
   const underweight = report.items.filter((i) => i.gapPct > 1);
   const overweight = report.items.filter((i) => i.gapPct < -1 && i.targetPct > 0);
@@ -67,7 +66,7 @@ export function buildWeeklyEmailHtml(report: AllocationReport): string {
 <tr><td style="padding:16px 24px;background:${S.cardBg};border-bottom:1px solid ${S.border};">
   <table width="100%" cellpadding="0" cellspacing="0"><tr>
     <td style="text-align:center;padding:8px;">
-      <div style="font-size:11px;color:${S.muted};text-transform:uppercase;">Holdings Value</div>
+      <div style="font-size:11px;color:${S.muted};text-transform:uppercase;">Holdings Value · ${defaultCurrency}</div>
       <div style="font-size:20px;font-weight:bold;color:#fff;">${fmt$(report.totalCurrentValue)}</div>
     </td>
     <td style="text-align:center;padding:8px;">
@@ -142,6 +141,14 @@ ${
   <p style="margin:4px 0 0;font-size:12px;color:${S.text};">
     ${noTarget.map((i) => `<b>${i.ticker}</b> (${fmt$(i.currentValue)}, ${i.currentPct.toFixed(1)}%)`).join(", ")}
   </p>
+</td></tr>`
+    : ""
+}
+
+${
+  hasCrossCurrency
+    ? `<tr><td style="padding:10px 24px;background:${S.cardBg};border-top:1px solid ${S.border};font-size:11px;color:${S.muted};">
+  Values shown in ${defaultCurrency} — multi-currency portfolio detected.
 </td></tr>`
     : ""
 }

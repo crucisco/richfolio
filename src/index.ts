@@ -1,5 +1,5 @@
-import { allUniqueTickers, intradayConfig } from "./config.js";
-import { fetchAllPrices, fetchMacroIndicators, formatMacroContext } from "./fetchPrices.js";
+import { allUniqueTickers, intradayConfig, defaultCurrency } from "./config.js";
+import { fetchPrices, fetchMacroIndicators, formatMacroContext } from "./fetchPrices.js";
 import { fetchTechnicals } from "./fetchTechnicals.js";
 import { fetchNews } from "./fetchNews.js";
 import type { NewsItem } from "./fetchNews.js";
@@ -96,10 +96,20 @@ const refreshTicker =
 
 try {
   const tickers = allUniqueTickers();
-  const [prices, macroIndicators] = await Promise.all([
-    fetchAllPrices(tickers),
+  const [priceResult, macroIndicators] = await Promise.all([
+    fetchPrices(tickers, defaultCurrency),
     fetchMacroIndicators(),
   ]);
+  const prices: Record<string, QuoteData> = {};
+  for (const q of priceResult.quotes) prices[q.ticker] = q;
+  const fxSkipped = priceResult.skipped;
+  const fxRates = priceResult.fxRates;
+  if (fxSkipped.length > 0) {
+    console.warn(
+      `⚠ Skipped ${fxSkipped.length} ticker(s) (no FX rate): ${fxSkipped.map((s) => s.ticker).join(", ")}`,
+    );
+  }
+  // fxSkipped is also passed to email/Telegram footers in later tasks
   const macroContext = formatMacroContext(macroIndicators);
   const report = runAnalysis(prices);
 
@@ -146,7 +156,7 @@ try {
 
     // Re-run analysis with updated price, fetch technicals for target only
     const refreshReport = runAnalysis(prices);
-    const technicals = await fetchTechnicals([refreshTicker]);
+    const technicals = await fetchTechnicals([refreshTicker], prices, fxRates);
     const emptyNews: Record<string, NewsItem[]> = {};
     const aiRecs = await aiAnalyze(refreshReport, prices, emptyNews, technicals, macroContext);
 
@@ -210,7 +220,7 @@ try {
 
     // Run AI analysis WITHOUT news (saves NewsAPI quota), WITH technicals
     const emptyNews: Record<string, NewsItem[]> = {};
-    const technicals = await fetchTechnicals(tickers);
+    const technicals = await fetchTechnicals(tickers, prices, fxRates);
     const aiRecs = await aiAnalyze(report, prices, emptyNews, technicals, macroContext);
 
     // Generate detailed analysis + "More Details" URLs for STRONG BUY tickers
@@ -259,7 +269,7 @@ try {
     // Daily mode: full brief with news + AI + technicals
     const [news, technicals] = await Promise.all([
       fetchNews(tickers, prices),
-      fetchTechnicals(tickers),
+      fetchTechnicals(tickers, prices, fxRates),
     ]);
     const reasoningHistory = loadReasoningHistory();
     const aiRecs = await aiAnalyze(
@@ -289,7 +299,7 @@ try {
       });
     }
 
-    await sendBrief(report, news, aiRecs, technicals, prices);
+    await sendBrief(report, news, aiRecs, technicals, prices, fxSkipped);
     try {
       await sendTelegramBrief(report, news, aiRecs, technicals, prices);
     } catch (err) {

@@ -1,5 +1,7 @@
 import YahooFinance from "yahoo-finance2";
 import { toYahooTicker, fromYahooTicker } from "./config.js";
+import { fetchFxRates } from "./fetchFx.js";
+import { SUB_UNIT_FIX, applyFxRate } from "./util.js";
 
 const yahooFinance = new YahooFinance({
   suppressNotices: ["yahooSurvey"],
@@ -16,6 +18,8 @@ export interface QuoteData {
   ticker: string;
   name: string | null;
   longName: string | null;
+  currency: string; // post-conversion currency (= defaultCurrency once Task 5 lands)
+  originalCurrency: string; // raw Yahoo currency (audit / logging)
   price: number;
   trailingPE: number | null;
   forwardPE: number | null;
@@ -43,6 +47,12 @@ export interface QuoteData {
   // Earnings calendar (from calendarEvents module)
   earningsDate: Date | null;
   daysToEarnings: number | null;
+}
+
+export interface FetchResult {
+  quotes: QuoteData[];
+  skipped: Array<{ ticker: string; reason: string }>;
+  fxRates: Record<string, number>;
 }
 
 // ── Latest price helper (prefers after-hours when available) ────────
@@ -112,32 +122,45 @@ async function fetchOne(yahooTicker: string): Promise<QuoteData | null> {
             .map((h) => ({ symbol: h.symbol, holdingPercent: h.holdingPercent }))
         : null;
 
+    const rawCurrency = result.price?.currency ?? "USD";
+    const subUnit = SUB_UNIT_FIX[rawCurrency];
+    const originalCurrency = subUnit ? subUnit.realCurrency : rawCurrency;
+    const priceDivisor = subUnit ? subUnit.divisor : 1;
+
     return {
       ticker: configTicker,
       name: result.price?.shortName ?? result.price?.longName ?? null,
       longName: result.price?.longName ?? result.price?.shortName ?? null,
-      price,
+      currency: originalCurrency,
+      originalCurrency,
+      price: price / priceDivisor,
       trailingPE: result.summaryDetail?.trailingPE ?? null,
       forwardPE: result.summaryDetail?.forwardPE ?? null,
       avgPE,
-      fiftyTwoWeekHigh: high,
-      fiftyTwoWeekLow: low,
+      fiftyTwoWeekHigh: high != null ? high / priceDivisor : null,
+      fiftyTwoWeekLow: low != null ? low / priceDivisor : null,
       fiftyTwoWeekPercent: range != null ? Math.round(range * 1000) / 1000 : null,
-      marketCap: result.summaryDetail?.marketCap ?? result.price?.marketCap ?? null,
+      marketCap: (() => {
+        const mc = result.summaryDetail?.marketCap ?? result.price?.marketCap ?? null;
+        return mc != null ? mc / priceDivisor : null;
+      })(),
       dividendYield: result.summaryDetail?.dividendYield ?? null,
       beta: result.defaultKeyStatistics?.beta ?? null,
       holdings,
       returnOnEquity: fin?.returnOnEquity ?? null,
       debtToEquity: fin?.debtToEquity ?? null,
-      freeCashflow: fin?.freeCashflow ?? null,
-      operatingCashflow: fin?.operatingCashflow ?? null,
+      freeCashflow: fin?.freeCashflow != null ? fin.freeCashflow / priceDivisor : null,
+      operatingCashflow:
+        fin?.operatingCashflow != null ? fin.operatingCashflow / priceDivisor : null,
       profitMargins: fin?.profitMargins ?? null,
       revenueGrowth: fin?.revenueGrowth ?? null,
       earningsGrowth: fin?.earningsGrowth ?? null,
-      targetMeanPrice: fin?.targetMeanPrice ?? null,
+      targetMeanPrice: fin?.targetMeanPrice != null ? fin.targetMeanPrice / priceDivisor : null,
       recommendationKey: fin?.recommendationKey ?? null,
-      postMarketPrice: result.price?.postMarketPrice ?? null,
-      preMarketPrice: result.price?.preMarketPrice ?? null,
+      postMarketPrice:
+        result.price?.postMarketPrice != null ? result.price.postMarketPrice / priceDivisor : null,
+      preMarketPrice:
+        result.price?.preMarketPrice != null ? result.price.preMarketPrice / priceDivisor : null,
       earningsDate: (() => {
         const dates = result.calendarEvents?.earnings?.earningsDate;
         if (dates && dates.length > 0) return new Date(dates[0]);
@@ -307,18 +330,21 @@ export function formatMacroContext(m: MacroIndicators): string {
 }
 
 // ── Fetch all tickers ───────────────────────────────────────────────
-export async function fetchAllPrices(tickers: string[]): Promise<Record<string, QuoteData>> {
+export async function fetchPrices(
+  tickers: string[],
+  defaultCurrency: string,
+): Promise<FetchResult> {
   console.log(`Fetching prices for ${tickers.length} tickers...`);
 
-  const results: Record<string, QuoteData> = {};
-
+  // Pass 1: fetch raw quotes (post-sub-unit-fix, pre-FX)
+  const rawQuotes: QuoteData[] = [];
   for (const ticker of tickers) {
     const yahooTicker = toYahooTicker(ticker);
     const data = await fetchOne(yahooTicker);
     if (data) {
-      results[data.ticker] = data;
+      rawQuotes.push(data);
       console.log(
-        `  ✓ ${data.ticker}: $${data.price.toFixed(2)}` +
+        `  ✓ ${data.ticker}: ${data.price.toFixed(2)} ${data.originalCurrency}` +
           (data.trailingPE != null ? ` P/E=${data.trailingPE.toFixed(1)}` : "") +
           (data.avgPE != null ? ` avgPE=${data.avgPE.toFixed(1)}` : "") +
           (data.fiftyTwoWeekPercent != null
@@ -332,6 +358,28 @@ export async function fetchAllPrices(tickers: string[]): Promise<Record<string, 
     }
   }
 
-  console.log(`Fetched ${Object.keys(results).length}/${tickers.length} tickers\n`);
-  return results;
+  // Pass 2: collect unique source currencies, fetch FX rates in one batch
+  const uniqueCurrencies = Array.from(new Set(rawQuotes.map((q) => q.originalCurrency)));
+  console.log(`Fetching FX rates: ${uniqueCurrencies.join(", ")} → ${defaultCurrency}`);
+  const fxRates = await fetchFxRates(uniqueCurrencies, defaultCurrency);
+
+  // Pass 3: apply FX conversion, build skip list
+  const quotes: QuoteData[] = [];
+  const skipped: Array<{ ticker: string; reason: string }> = [];
+
+  for (const q of rawQuotes) {
+    const rate = fxRates[q.originalCurrency];
+    if (rate === undefined) {
+      console.warn(`  ⚠ ${q.ticker}: skipping — no FX rate for ${q.originalCurrency}`);
+      skipped.push({
+        ticker: q.ticker,
+        reason: `no FX rate ${q.originalCurrency}→${defaultCurrency}`,
+      });
+      continue;
+    }
+    quotes.push(applyFxRate(q, rate, defaultCurrency));
+  }
+
+  console.log(`Fetched ${quotes.length}/${tickers.length} tickers (${skipped.length} skipped)\n`);
+  return { quotes, skipped, fxRates };
 }
