@@ -170,10 +170,11 @@ function buildAISection(
   <p style="margin:4px 0 0;font-size:11px;color:${S.muted};">Powered by Gemini — considers fundamentals, valuation, allocation gap, technicals, and news sentiment.</p>
 </td></tr>
 <tr><td style="padding:0 24px 16px;background:${S.cardBg};">
-  ${actionable.length > 0
+  ${
+    actionable.length > 0
       ? actionable
-        .map(
-          (rec) => `
+          .map(
+            (rec) => `
   <div style="padding:10px 0;border-bottom:1px solid ${S.border};">
     <div style="margin-bottom:4px;">
       <span style="font-weight:bold;font-size:14px;color:#fff;" title="${escapeHtmlAttr(rec.tickerFullName ?? rec.ticker)}">${rec.ticker}</span>
@@ -183,35 +184,37 @@ function buildAISection(
     </div>
     <div style="font-size:12px;color:${S.text};margin-top:4px;">${rec.reason}</div>
     ${buildTechnicalInsight(rec, technicals[rec.ticker])}
-    ${rec.action === "STRONG BUY" && rec.analysisUrl
-              ? `
+    ${
+      rec.action === "STRONG BUY" && rec.analysisUrl
+        ? `
     <div style="margin-top:8px;">
       <a href="${rec.analysisUrl}" style="display:inline-block;background:${S.blue}22;color:${S.blue};padding:4px 12px;border-radius:4px;font-size:11px;font-weight:bold;text-decoration:none;border:1px solid ${S.blue}44;">More Details &rarr;</a>
     </div>`
-              : ""
-            }
-  </div>`,
-        )
-        .join("")
-      : `<p style="color:${S.muted};font-size:13px;">No strong buy opportunities identified today.</p>`
+        : ""
     }
-  ${others.length > 0
+  </div>`,
+          )
+          .join("")
+      : `<p style="color:${S.muted};font-size:13px;">No strong buy opportunities identified today.</p>`
+  }
+  ${
+    others.length > 0
       ? `
   <div style="margin-top:12px;">
     <div style="font-size:11px;color:${S.muted};text-transform:uppercase;margin-bottom:6px;">Hold / Wait</div>
     ${others
-        .map(
-          (rec) => `
+      .map(
+        (rec) => `
     <div style="padding:4px 0;font-size:12px;">
       <span style="font-weight:bold;" title="${escapeHtmlAttr(rec.tickerFullName ?? rec.ticker)}">${rec.ticker}</span>
       &nbsp;${actionBadge(rec.action)}${valueRatingBadge(rec.valueRating)}
       <span style="color:${S.muted};margin-left:8px;">${rec.reason}</span>
     </div>`,
-        )
-        .join("")}
+      )
+      .join("")}
   </div>`
       : ""
-    }
+  }
 </td></tr>`;
 }
 
@@ -350,50 +353,53 @@ ${buysSection}
 </td></tr>
 
 <!-- News Digest -->
-${tickersWithNews.length > 0
-      ? `
+${
+  tickersWithNews.length > 0
+    ? `
 <tr><td style="padding:20px 24px 8px;background:${S.cardBg};border-top:1px solid ${S.border};">
   <h2 style="margin:0;font-size:16px;color:${S.blue};">News Digest</h2>
 </td></tr>
 <tr><td style="padding:0 24px 16px;background:${S.cardBg};">
   ${tickersWithNews
-        .map(
-          ([ticker, articles]) => `
+    .map(
+      ([ticker, articles]) => `
   <div style="margin-bottom:12px;">
     <div style="font-weight:bold;font-size:13px;color:#fff;margin-bottom:4px;">${ticker}</div>
     ${articles
-              .map(
-                (a) => `
+      .map(
+        (a) => `
     <div style="margin-left:12px;margin-bottom:4px;font-size:12px;">
       <a href="${a.url}" style="color:${S.blue};text-decoration:none;">→ ${a.title}</a>
       <span style="color:${S.muted};font-size:11px;"> — ${a.source}</span>
     </div>`,
-              )
-              .join("")}
+      )
+      .join("")}
   </div>`,
-        )
-        .join("")}
+    )
+    .join("")}
 </td></tr>
 `
-      : ""
-    }
+    : ""
+}
 
-${hasCrossCurrency
-      ? `
+${
+  hasCrossCurrency
+    ? `
 <!-- FX caveat -->
 <tr><td style="padding:10px 24px;background:${S.cardBg};border-top:1px solid ${S.border};font-size:11px;color:${S.muted};">
   Limit prices shown in ${defaultCurrency} — check your broker's quote currency before placing an order.
 </td></tr>`
-      : ""
-    }
-${fxSkipped.length > 0
-      ? `
+    : ""
+}
+${
+  fxSkipped.length > 0
+    ? `
 <!-- FX skipped tickers -->
 <tr><td style="padding:10px 24px;background:${S.cardBg};border-top:1px solid ${S.border};font-size:11px;color:${S.yellow};">
   FX lookup failed — skipped: ${fxSkipped.map((s) => `${s.ticker} (${s.reason})`).join(", ")}
 </td></tr>`
-      : ""
-    }
+    : ""
+}
 
 <!-- Footer -->
 <tr><td style="padding:16px 24px;background:${S.accent};border-radius:0 0 8px 8px;text-align:center;">
