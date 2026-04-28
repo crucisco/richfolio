@@ -6,6 +6,7 @@ import type { IntradayAlertConfig } from "./config.js";
 export interface IntradayAlert {
   ticker: string;
   tickerFullName: string | null;
+  originalCurrency: string;
   morningAction: string;
   morningConfidence: number;
   currentAction: string;
@@ -37,13 +38,11 @@ export function compareWithBaseline(
   currentRecs: AIBuyRecommendation[],
   currentPrices: Record<string, number>,
   baseline: MorningBaseline,
-  config: IntradayAlertConfig
+  config: IntradayAlertConfig,
 ): IntradayAlert[] {
   const alerts: IntradayAlert[] = [];
 
-  const baselineMap = new Map(
-    baseline.recommendations.map((r) => [r.ticker, r])
-  );
+  const baselineMap = new Map(baseline.recommendations.map((r) => [r.ticker, r]));
 
   for (const rec of currentRecs) {
     const morning = baselineMap.get(rec.ticker);
@@ -78,7 +77,11 @@ export function compareWithBaseline(
     }
 
     // Skip alerts below minimum confidence threshold
-    if (triggerType && triggerType !== "action_downgrade" && rec.confidence < config.minConfidenceToAlert) {
+    if (
+      triggerType &&
+      triggerType !== "action_downgrade" &&
+      rec.confidence < config.minConfidenceToAlert
+    ) {
       triggerType = null;
     }
 
@@ -86,6 +89,7 @@ export function compareWithBaseline(
       alerts.push({
         ticker: rec.ticker,
         tickerFullName: rec.tickerFullName ?? null,
+        originalCurrency: rec.originalCurrency,
         morningAction,
         morningConfidence,
         currentAction: rec.action,
@@ -101,10 +105,7 @@ export function compareWithBaseline(
         triggerType,
         currentPrice,
         morningPrice,
-        priceDelta:
-          morningPrice > 0
-            ? ((currentPrice - morningPrice) / morningPrice) * 100
-            : 0,
+        priceDelta: morningPrice > 0 ? ((currentPrice - morningPrice) / morningPrice) * 100 : 0,
       });
     }
   }

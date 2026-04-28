@@ -1,12 +1,17 @@
-import { allUniqueTickers, intradayConfig } from "./config.js";
-import { fetchAllPrices, fetchMacroIndicators, formatMacroContext } from "./fetchPrices.js";
+import { allUniqueTickers, intradayConfig, defaultCurrency } from "./config.js";
+import { fetchPrices, fetchMacroIndicators, formatMacroContext } from "./fetchPrices.js";
 import { fetchTechnicals } from "./fetchTechnicals.js";
 import { fetchNews } from "./fetchNews.js";
 import type { NewsItem } from "./fetchNews.js";
 import { runAnalysis } from "./analyze.js";
 import { aiAnalyze } from "./aiAnalysis.js";
 import { sendBrief } from "./email.js";
-import { sendTelegramBrief, sendWeeklyTelegram, sendIntradayTelegram, sendRefreshTelegram } from "./telegram.js";
+import {
+  sendTelegramBrief,
+  sendWeeklyTelegram,
+  sendIntradayTelegram,
+  sendRefreshTelegram,
+} from "./telegram.js";
 import { getLatestPrice } from "./fetchPrices.js";
 import { sendWeeklyBrief } from "./weeklyEmail.js";
 import { saveBaseline, loadBaseline, loadReasoningHistory, saveReasoningHistory } from "./state.js";
@@ -25,7 +30,7 @@ async function enrichStrongBuysWithAnalysis(
   prices: Record<string, QuoteData>,
   technicals: Record<string, TechnicalData>,
   report: AllocationReport,
-  macroContext: string = ""
+  macroContext: string = "",
 ): Promise<void> {
   const strongBuys = aiRecs.filter((r) => r.action === "STRONG BUY");
   if (strongBuys.length === 0) return;
@@ -36,7 +41,7 @@ async function enrichStrongBuysWithAnalysis(
     technicals,
     aiRecs,
     report,
-    macroContext
+    macroContext,
   );
 
   for (const rec of strongBuys) {
@@ -86,14 +91,25 @@ const isWeekly = process.argv.includes("--weekly");
 const isIntraday = process.argv.includes("--intraday");
 const isRefresh = process.argv.includes("--refresh");
 const refreshTickerRaw = isRefresh ? process.argv[process.argv.length - 1] : null;
-const refreshTicker = refreshTickerRaw && !refreshTickerRaw.startsWith("-") ? refreshTickerRaw.toUpperCase() : null;
+const refreshTicker =
+  refreshTickerRaw && !refreshTickerRaw.startsWith("-") ? refreshTickerRaw.toUpperCase() : null;
 
 try {
   const tickers = allUniqueTickers();
-  const [prices, macroIndicators] = await Promise.all([
-    fetchAllPrices(tickers),
+  const [priceResult, macroIndicators] = await Promise.all([
+    fetchPrices(tickers, defaultCurrency),
     fetchMacroIndicators(),
   ]);
+  const prices: Record<string, QuoteData> = {};
+  for (const q of priceResult.quotes) prices[q.ticker] = q;
+  const fxSkipped = priceResult.skipped;
+  const fxRates = priceResult.fxRates;
+  if (fxSkipped.length > 0) {
+    console.warn(
+      `⚠ Skipped ${fxSkipped.length} ticker(s) (no FX rate): ${fxSkipped.map((s) => s.ticker).join(", ")}`,
+    );
+  }
+  // fxSkipped is also passed to email/Telegram footers in later tasks
   const macroContext = formatMacroContext(macroIndicators);
   const report = runAnalysis(prices);
 
@@ -108,7 +124,9 @@ try {
   // Log overlap discounts
   for (const item of report.items) {
     if (item.overlapDiscount > 0) {
-      console.log(`  ETF overlap: ${item.ticker} -$${item.overlapDiscount.toFixed(0)} (${item.overlapPct.toFixed(0)}%)`);
+      console.log(
+        `  ETF overlap: ${item.ticker} -$${item.overlapDiscount.toFixed(0)} (${item.overlapPct.toFixed(0)}%)`,
+      );
     }
   }
 
@@ -138,7 +156,7 @@ try {
 
     // Re-run analysis with updated price, fetch technicals for target only
     const refreshReport = runAnalysis(prices);
-    const technicals = await fetchTechnicals([refreshTicker]);
+    const technicals = await fetchTechnicals([refreshTicker], prices, fxRates);
     const emptyNews: Record<string, NewsItem[]> = {};
     const aiRecs = await aiAnalyze(refreshReport, prices, emptyNews, technicals, macroContext);
 
@@ -157,7 +175,9 @@ try {
     console.log(`Price: $${quote.price.toFixed(2)} (${latest.source})`);
     console.log(`Reason: ${targetRec.reason}`);
     if (targetRec.suggestedLimitPrice) {
-      console.log(`Limit: $${targetRec.suggestedLimitPrice.toFixed(2)}${targetRec.limitPriceReason ? " — " + targetRec.limitPriceReason : ""}`);
+      console.log(
+        `Limit: $${targetRec.suggestedLimitPrice.toFixed(2)}${targetRec.limitPriceReason ? " — " + targetRec.limitPriceReason : ""}`,
+      );
     }
     if (targetRec.suggestedBuyValue > 0) {
       console.log(`Suggested buy: $${targetRec.suggestedBuyValue.toFixed(0)}`);
@@ -200,7 +220,7 @@ try {
 
     // Run AI analysis WITHOUT news (saves NewsAPI quota), WITH technicals
     const emptyNews: Record<string, NewsItem[]> = {};
-    const technicals = await fetchTechnicals(tickers);
+    const technicals = await fetchTechnicals(tickers, prices, fxRates);
     const aiRecs = await aiAnalyze(report, prices, emptyNews, technicals, macroContext);
 
     // Generate detailed analysis + "More Details" URLs for STRONG BUY tickers
@@ -225,7 +245,7 @@ try {
       console.log(`\n${alerts.length} signal(s) strengthened:`);
       for (const a of alerts) {
         console.log(
-          `  ${a.ticker}: ${a.morningAction} ${a.morningConfidence}% → ${a.currentAction} ${a.currentConfidence}% (${a.triggerType})`
+          `  ${a.ticker}: ${a.morningAction} ${a.morningConfidence}% → ${a.currentAction} ${a.currentConfidence}% (${a.triggerType})`,
         );
       }
 
@@ -249,10 +269,17 @@ try {
     // Daily mode: full brief with news + AI + technicals
     const [news, technicals] = await Promise.all([
       fetchNews(tickers, prices),
-      fetchTechnicals(tickers),
+      fetchTechnicals(tickers, prices, fxRates),
     ]);
     const reasoningHistory = loadReasoningHistory();
-    const aiRecs = await aiAnalyze(report, prices, news, technicals, macroContext, reasoningHistory);
+    const aiRecs = await aiAnalyze(
+      report,
+      prices,
+      news,
+      technicals,
+      macroContext,
+      reasoningHistory,
+    );
 
     // Generate detailed analysis + "More Details" URLs for STRONG BUY tickers
     await enrichStrongBuysWithAnalysis(aiRecs, prices, technicals, report, macroContext);
@@ -272,7 +299,7 @@ try {
       });
     }
 
-    await sendBrief(report, news, aiRecs, technicals, prices);
+    await sendBrief(report, news, aiRecs, technicals, prices, fxSkipped);
     try {
       await sendTelegramBrief(report, news, aiRecs, technicals, prices);
     } catch (err) {

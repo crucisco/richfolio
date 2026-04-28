@@ -5,8 +5,16 @@ import type { AllocationReport } from "./analyze.js";
 
 // Short-duration bond ETFs — duplicated from aiAnalysis.ts for guard independence
 const SHORT_DURATION_BOND_ETFS = new Set([
-  "BSV", "SHY", "VGSH", "SCHO", "BIL", "SHV", "CLTL", "SGOV",
-  "VCSH", "USIG",
+  "BSV",
+  "SHY",
+  "VGSH",
+  "SCHO",
+  "BIL",
+  "SHV",
+  "CLTL",
+  "SGOV",
+  "VCSH",
+  "USIG",
 ]);
 
 /**
@@ -19,9 +27,9 @@ export function validateRecommendations(
   recs: AIBuyRecommendation[],
   priceData: Record<string, QuoteData>,
   technicals: Record<string, TechnicalData>,
-  report: AllocationReport
+  report: AllocationReport,
 ): void {
-  guardBondETFCap(recs);
+  guardBondETFCap(recs, report);
   guardEarningsProximity(recs, priceData);
   guardStrongBuyCriteria(recs, report, technicals);
   guardMaxStrongBuy(recs);
@@ -30,12 +38,39 @@ export function validateRecommendations(
 }
 
 // ── Guard 1: Bond ETF cap ──────────────────────────────────────────
-function guardBondETFCap(recs: AIBuyRecommendation[]): void {
+function guardBondETFCap(recs: AIBuyRecommendation[], report?: AllocationReport): void {
+  const gapMap: Record<string, number> = {};
+  if (report) {
+    for (const item of report.items) {
+      gapMap[item.ticker] = item.gapPct;
+    }
+  }
+
   for (const rec of recs) {
-    if (SHORT_DURATION_BOND_ETFS.has(rec.ticker.toUpperCase()) && rec.action === "STRONG BUY") {
+    if (!SHORT_DURATION_BOND_ETFS.has(rec.ticker.toUpperCase())) continue;
+
+    // Never STRONG BUY short-duration bonds
+    if (rec.action === "STRONG BUY") {
       console.log(`  [guard:bond] ${rec.ticker}: short-duration bond ETF → capping at BUY`);
       rec.action = "BUY";
-      rec.confidence = Math.min(rec.confidence, 65);
+    }
+
+    // Scale confidence by gap size (not technicals)
+    const gap = gapMap[rec.ticker] ?? 0;
+    let maxConfidence: number;
+    if (gap >= 5) maxConfidence = 75;
+    else if (gap >= 3) maxConfidence = 70;
+    else if (gap >= 1) maxConfidence = 55;
+    else maxConfidence = 40; // near target → low confidence
+
+    if (rec.confidence > maxConfidence) {
+      rec.confidence = maxConfidence;
+    }
+
+    // If gap < 1%, downgrade to HOLD
+    if (gap < 1 && rec.action === "BUY") {
+      rec.action = "HOLD";
+      rec.suggestedBuyValue = 0;
     }
   }
 }
@@ -43,7 +78,7 @@ function guardBondETFCap(recs: AIBuyRecommendation[]): void {
 // ── Guard 2: Earnings proximity ────────────────────────────────────
 function guardEarningsProximity(
   recs: AIBuyRecommendation[],
-  priceData: Record<string, QuoteData>
+  priceData: Record<string, QuoteData>,
 ): void {
   for (const rec of recs) {
     const quote = priceData[rec.ticker];
@@ -68,7 +103,7 @@ function guardEarningsProximity(
 function guardStrongBuyCriteria(
   recs: AIBuyRecommendation[],
   report: AllocationReport,
-  technicals: Record<string, TechnicalData>
+  technicals: Record<string, TechnicalData>,
 ): void {
   const gapMap: Record<string, number> = {};
   for (const item of report.items) {
@@ -95,19 +130,21 @@ function guardStrongBuyCriteria(
       continue;
     }
 
-    // Check for at least 1 price-level signal (heuristic check from technicals)
+    // Soft check for signal presence — the AI already applies strict criteria,
+    // this guard only catches obvious misses (no signals at all).
+    // We can't perfectly verify P/E signals here without avgPE data.
     if (tech) {
-      const priceBelow200MA = tech.sma200 != null && tech.priceVsSma200 != null && tech.priceVsSma200 < 0;
-      const near52wLow = tech.recentLow30d != null; // if we have data, check momentum context
-      // We can't perfectly verify P/E signals here without avgPE, but the gap + confidence
-      // checks catch most false STRONG BUYs. This guard is a safety net, not a replacement.
-      if (!priceBelow200MA && !near52wLow) {
-        // Soft check — only downgrade if no momentum signals either
-        const hasAnyMomentum = tech.rsi14 < 35 || tech.macdCrossover === "bullish" || (tech.bollPercentB != null && tech.bollPercentB < 0.15);
-        if (!hasAnyMomentum) {
-          console.log(`  [guard:criteria] ${rec.ticker}: no price-level or momentum signals → BUY`);
-          rec.action = "BUY";
-        }
+      const priceBelow200MA =
+        tech.sma200 != null && tech.priceVsSma200 != null && tech.priceVsSma200 < 0;
+      const hasAnyMomentum =
+        tech.rsi14 < 35 ||
+        tech.macdCrossover === "bullish" ||
+        (tech.bollPercentB != null && tech.bollPercentB < 0.15) ||
+        (tech.stochK != null && tech.stochK < 20);
+      // Only downgrade if there are truly NO signals at all
+      if (!priceBelow200MA && !hasAnyMomentum) {
+        console.log(`  [guard:criteria] ${rec.ticker}: no price-level or momentum signals → BUY`);
+        rec.action = "BUY";
       }
     }
   }
@@ -116,7 +153,7 @@ function guardStrongBuyCriteria(
 // ── Guard 4: Max 2 STRONG BUY ──────────────────────────────────────
 function guardMaxStrongBuy(recs: AIBuyRecommendation[]): void {
   const strongBuys = recs
-    .filter(r => r.action === "STRONG BUY")
+    .filter((r) => r.action === "STRONG BUY")
     .sort((a, b) => b.confidence - a.confidence);
 
   if (strongBuys.length > 2) {
@@ -134,17 +171,16 @@ function guardConfidenceSanity(recs: AIBuyRecommendation[]): void {
       rec.confidence = 95;
     }
     if ((rec.action === "HOLD" || rec.action === "WAIT") && rec.confidence > 70) {
-      console.log(`  [guard:sanity] ${rec.ticker}: ${rec.action} with ${rec.confidence}% → capping at 70%`);
+      console.log(
+        `  [guard:sanity] ${rec.ticker}: ${rec.action} with ${rec.confidence}% → capping at 70%`,
+      );
       rec.confidence = 70;
     }
   }
 }
 
 // ── Guard 6: Buy value sanity ──────────────────────────────────────
-function guardBuyValueSanity(
-  recs: AIBuyRecommendation[],
-  report: AllocationReport
-): void {
+function guardBuyValueSanity(recs: AIBuyRecommendation[], report: AllocationReport): void {
   const gapValueMap: Record<string, number> = {};
   for (const item of report.items) {
     gapValueMap[item.ticker] = item.suggestedBuyValue;
@@ -164,7 +200,9 @@ function guardBuyValueSanity(
 
     const maxGap = gapValueMap[rec.ticker] ?? 0;
     if (maxGap > 0 && rec.suggestedBuyValue > maxGap * 1.1) {
-      console.log(`  [guard:value] ${rec.ticker}: suggestedBuyValue $${rec.suggestedBuyValue.toFixed(0)} > gap $${maxGap.toFixed(0)} → capping`);
+      console.log(
+        `  [guard:value] ${rec.ticker}: suggestedBuyValue $${rec.suggestedBuyValue.toFixed(0)} > gap $${maxGap.toFixed(0)} → capping`,
+      );
       rec.suggestedBuyValue = maxGap;
     }
   }
