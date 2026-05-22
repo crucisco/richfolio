@@ -38,6 +38,16 @@ export function validateRecommendations(
 }
 
 // ── Guard 1: Bond ETF cap ──────────────────────────────────────────
+// Short-duration bonds (BSV, SHY, ...) can never be STRONG BUY — they have no
+// meaningful capital-appreciation upside. They also can't carry a limit price:
+// daily price range is so tight that "limit at 50MA support" is noise.
+//
+// Confidence is NOT gap-capped here anymore. Framework 12a in aiAnalysis.ts
+// drives confidence via timing modifiers (90d percentile, 10Y rate change,
+// distribution yield) so BSV reflects whether today is actually a good entry.
+// Absolute ceiling of 95 matches the equity confidence cap in
+// guardConfidenceSanity — STRONG BUY/BUY tier ordering keeps BSV from
+// crowding genuine equity STRONG BUYs visually, so the cap can be permissive.
 function guardBondETFCap(recs: AIBuyRecommendation[], report?: AllocationReport): void {
   const gapMap: Record<string, number> = {};
   if (report) {
@@ -55,19 +65,20 @@ function guardBondETFCap(recs: AIBuyRecommendation[], report?: AllocationReport)
       rec.action = "BUY";
     }
 
-    // Scale confidence by gap size (not technicals)
-    const gap = gapMap[rec.ticker] ?? 0;
-    let maxConfidence: number;
-    if (gap >= 5) maxConfidence = 75;
-    else if (gap >= 3) maxConfidence = 70;
-    else if (gap >= 1) maxConfidence = 55;
-    else maxConfidence = 40; // near target → low confidence
-
-    if (rec.confidence > maxConfidence) {
-      rec.confidence = maxConfidence;
+    // Strip limit-price suggestion — meaningless on a low-volatility instrument
+    if (rec.suggestedLimitPrice && rec.suggestedLimitPrice > 0) {
+      console.log(`  [guard:bond] ${rec.ticker}: stripping limit price (short-duration bond)`);
+      rec.suggestedLimitPrice = 0;
+      rec.limitPriceReason = "";
     }
 
-    // If gap < 1%, downgrade to HOLD
+    // Absolute confidence ceiling (safety net for AI overshoot)
+    if (rec.confidence > 95) {
+      rec.confidence = 95;
+    }
+
+    // If gap < 1%, position is essentially on target — downgrade to HOLD
+    const gap = gapMap[rec.ticker] ?? 0;
     if (gap < 1 && rec.action === "BUY") {
       rec.action = "HOLD";
       rec.suggestedBuyValue = 0;

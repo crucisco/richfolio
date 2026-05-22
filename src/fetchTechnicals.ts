@@ -40,6 +40,10 @@ export interface TechnicalData {
   stochD: number | null; // 3-period SMA of %K
   // OBV (On-Balance Volume) trend
   obvTrend: "rising" | "falling" | "flat" | null;
+  // Price percentile within rolling 90-day range (0=at 90d low, 100=at 90d high).
+  // Cheap entry signal for low-volatility instruments (esp. short-duration bond ETFs)
+  // where 52w-position is too coarse to distinguish day-to-day timing.
+  pricePercentile90d: number | null;
 }
 
 // ── Computation helpers ─────────────────────────────────────────────
@@ -372,6 +376,17 @@ async function fetchOne(ticker: string, fxRate: number = 1): Promise<TechnicalDa
     // OBV trend
     const obvTrend = computeOBVTrend(quotes);
 
+    // 90-day price percentile (0=at 90d low, 100=at 90d high)
+    let pricePercentile90d: number | null = null;
+    if (closes.length >= 90) {
+      const last90 = closes.slice(-90);
+      const min90 = Math.min(...last90);
+      const max90 = Math.max(...last90);
+      if (max90 > min90) {
+        pricePercentile90d = Math.round(((currentPrice - min90) / (max90 - min90)) * 1000) / 10;
+      }
+    }
+
     return {
       ticker,
       sma50: Math.round(sma50 * 100) / 100,
@@ -400,6 +415,7 @@ async function fetchOne(ticker: string, fxRate: number = 1): Promise<TechnicalDa
       stochK: stochResult?.k ?? null,
       stochD: stochResult?.d ?? null,
       obvTrend,
+      pricePercentile90d,
     };
   } catch (err) {
     console.error(`  ✗ ${ticker}: chart fetch failed —`, (err as Error).message);
@@ -439,6 +455,7 @@ export async function fetchTechnicals(
           (data.atrPercent != null ? ` ATR${data.atrPercent}%` : "") +
           (data.stochK != null ? ` Stoch${data.stochK}` : "") +
           (data.obvTrend != null ? ` OBV:${data.obvTrend}` : "") +
+          (data.pricePercentile90d != null ? ` p90d=${data.pricePercentile90d}%` : "") +
           (data.volumeChange7d != null
             ? ` vol${data.volumeChange7d > 0 ? "+" : ""}${data.volumeChange7d}%`
             : ""),

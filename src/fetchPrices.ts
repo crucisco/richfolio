@@ -29,6 +29,10 @@ export interface QuoteData {
   fiftyTwoWeekPercent: number | null;
   marketCap: number | null;
   dividendYield: number | null;
+  // ETF/fund-only: Yahoo's `summaryDetail.yield` (trailing 12-month fund yield, decimal).
+  // For bond ETFs this is the SEC/distribution yield and is the relevant income figure.
+  // Null for individual stocks.
+  distributionYield: number | null;
   beta: number | null;
   holdings: HoldingInfo[] | null;
   // Fundamental data (from financialData module)
@@ -145,6 +149,7 @@ async function fetchOne(yahooTicker: string): Promise<QuoteData | null> {
         return mc != null ? mc / priceDivisor : null;
       })(),
       dividendYield: result.summaryDetail?.dividendYield ?? null,
+      distributionYield: result.summaryDetail?.yield ?? null,
       beta: result.defaultKeyStatistics?.beta ?? null,
       holdings,
       returnOnEquity: fin?.returnOnEquity ?? null,
@@ -185,6 +190,10 @@ async function fetchOne(yahooTicker: string): Promise<QuoteData | null> {
 export interface MacroIndicators {
   vix: number | null; // ^VIX — fear index
   treasury10y: number | null; // ^TNX — 10-year yield (%)
+  // 20-trading-day change in 10Y yield (percentage points; +0.20 = yield rose 0.20%).
+  // Positive = rates rising → bond prices fell → cheaper entry for bond ETFs.
+  // Negative = rates falling → bond rally already happening → chasing.
+  treasury10yChange20d: number | null;
   sp500Price: number | null; // ^GSPC — S&P 500 level
   sp500YtdPct: number | null; // S&P 500 YTD return (%)
   sp50052wPct: number | null; // S&P 500 52-week position (0-1)
@@ -205,6 +214,7 @@ export async function fetchMacroIndicators(): Promise<MacroIndicators> {
   const indicators: MacroIndicators = {
     vix: null,
     treasury10y: null,
+    treasury10yChange20d: null,
     sp500Price: null,
     sp500YtdPct: null,
     sp50052wPct: null,
@@ -225,10 +235,37 @@ export async function fetchMacroIndicators(): Promise<MacroIndicators> {
           indicators.vix = Math.round(price * 100) / 100;
           console.log(`  ✓ VIX: ${indicators.vix}`);
           break;
-        case "treasury10y":
+        case "treasury10y": {
           indicators.treasury10y = Math.round(price * 100) / 100;
-          console.log(`  ✓ 10Y yield: ${indicators.treasury10y}%`);
+          // Fetch 30 calendar days of history to compute 20-trading-day change.
+          // Failure here is non-fatal — we still have the current yield.
+          try {
+            const period1 = new Date();
+            period1.setDate(period1.getDate() - 35);
+            const chart = await yahooFinance.chart(ticker, {
+              period1,
+              period2: new Date(),
+              interval: "1d",
+            });
+            const closes = (chart.quotes ?? [])
+              .map((q) => q.close)
+              .filter((c): c is number => c != null);
+            if (closes.length >= 21) {
+              const recent = closes[closes.length - 1];
+              const prior = closes[closes.length - 21];
+              indicators.treasury10yChange20d = Math.round((recent - prior) * 1000) / 1000;
+            }
+          } catch (err) {
+            // Soft failure: 20d change is a nice-to-have, not required.
+            console.warn(`  ⚠ 10Y chart fetch failed — ${(err as Error).message}`);
+          }
+          const changeStr =
+            indicators.treasury10yChange20d != null
+              ? ` (20d: ${indicators.treasury10yChange20d > 0 ? "+" : ""}${indicators.treasury10yChange20d}%)`
+              : "";
+          console.log(`  ✓ 10Y yield: ${indicators.treasury10y}%${changeStr}`);
           break;
+        }
         case "sp500": {
           indicators.sp500Price = Math.round(price * 100) / 100;
           const high = result.summaryDetail?.fiftyTwoWeekHigh ?? null;
@@ -286,7 +323,22 @@ export function formatMacroContext(m: MacroIndicators): string {
           : m.treasury10y >= 3
             ? "moderate"
             : "low — supportive for equities";
-    lines.push(`- 10-Year Treasury yield: ${m.treasury10y}% (${level})`);
+    let trendStr = "";
+    if (m.treasury10yChange20d != null) {
+      const c = m.treasury10yChange20d;
+      const direction =
+        c > 0.15
+          ? "rising fast — bond prices falling, attractive entry"
+          : c > 0.05
+            ? "rising — bonds cheaper than a month ago"
+            : c >= -0.05
+              ? "flat"
+              : c >= -0.15
+                ? "falling — bonds rallying, late to chase"
+                : "falling fast — bond rally underway, poor entry timing";
+      trendStr = ` | 20d change: ${c > 0 ? "+" : ""}${c}% (${direction})`;
+    }
+    lines.push(`- 10-Year Treasury yield: ${m.treasury10y}% (${level})${trendStr}`);
   }
   if (m.sp500Price != null) {
     let sp500Line = `- S&P 500: ${m.sp500Price.toLocaleString()}`;

@@ -270,6 +270,12 @@ function buildPrompt(
         );
       })(),
       `  Dividend yield: ${item.dividendYield != null ? (item.dividendYield * 100).toFixed(2) + "%" : "N/A"}`,
+      // Distribution yield is the SEC/trailing-12m yield used for bond and income ETFs.
+      // Only print it when present and distinct from dividendYield to avoid noise.
+      quote?.distributionYield != null &&
+      quote.distributionYield !== (item.dividendYield ?? -1)
+        ? `  Distribution yield (SEC/12m): ${(quote.distributionYield * 100).toFixed(2)}%`
+        : null,
       `  Beta: ${item.beta?.toFixed(2) ?? "N/A"}`,
       (() => {
         const days = quote?.daysToEarnings;
@@ -349,6 +355,18 @@ function buildPrompt(
       lines.push(
         `    7-day low: ${formatMoney(tech.recentLow7d, defaultCurrency)}, 30-day low: ${formatMoney(tech.recentLow30d, defaultCurrency)}`,
       );
+      if (tech.pricePercentile90d != null) {
+        const p = tech.pricePercentile90d;
+        const tag =
+          p <= 20
+            ? " ← NEAR 90-DAY LOW (good entry)"
+            : p >= 80
+              ? " ← NEAR 90-DAY HIGH (poor entry)"
+              : "";
+        lines.push(
+          `    90-day price percentile: ${p}% (0=at 90d low, 100=at 90d high)${tag}`,
+        );
+      }
       if (tech.volumeChange7d != null) {
         lines.push(
           `    Volume change (7d vs 30d avg): ${tech.volumeChange7d > 0 ? "+" : ""}${tech.volumeChange7d}%${tech.volumeChange7d < -20 ? " (contraction)" : tech.volumeChange7d > 50 ? " (surge)" : ""}`,
@@ -511,14 +529,40 @@ INSTRUCTIONS:
    12a. SHORT-DURATION BOND ETFs (marked "SHORT-DURATION BOND ETF"):
       - 1-5 year maturities, ~2% annual price range. These are cash equivalents.
       - MAX ACTION IS BUY — NEVER STRONG BUY. There is no meaningful capital appreciation upside.
-      - Best time to buy: whenever you have an allocation gap. Entry price barely matters.
-      - Focus: allocation gap size and yield competitiveness. Nothing else is material.
-      - CONFIDENCE SCALING (by gap size, not technicals):
-        * Gap ≥ 5%: confidence 70-75% — meaningful underweight, buy now
-        * Gap 3-5%: confidence 60-70% — moderate gap, steady accumulation
-        * Gap 1-3%: confidence 45-55% — small gap, low priority
-        * Gap < 1%: HOLD — essentially on target
-      - Framing: "Systematic accumulation to fill X% allocation gap; yield of Y% is acceptable"
+      - DO NOT suggest a limit order. Set suggestedLimitPrice = 0 and limitPriceReason = "".
+        A limit price is meaningless on a ticker that moves < 0.5% intraday — leave it blank.
+      - Confidence is driven by TIMING SIGNALS, not gap size alone. Score as follows:
+
+        BASE CONFIDENCE (from gap, before modifiers):
+          Gap ≥ 5%: base 55, max 95
+          Gap 3-5%: base 45, max 85
+          Gap 1-3%: base 35, max 72
+          Gap < 1%: action = HOLD, confidence ≤ 40
+
+        TIMING MODIFIERS (sum then clamp to [25, max-above]):
+        - 90-day price percentile (where today's price sits in the recent 90-day range):
+            ≤ 20% (near 90-day low): +12 (good entry — price is cheap vs recent range)
+            21-40%: +6
+            41-60%: 0
+            61-80%: -6
+            > 80% (near 90-day high): -15 (poor entry — wait for pullback)
+        - 10Y treasury 20-day change (from MACRO ENVIRONMENT):
+            Rising fast (> +0.15%): +6  (bonds got cheaper — favorable)
+            Rising (+0.05 to +0.15%): +3
+            Flat (-0.05 to +0.05%): 0
+            Falling (-0.05 to -0.15%): -6  (rally underway — chasing)
+            Falling fast (< -0.15%): -12
+        - Distribution yield level:
+            > 4.5%: +3 (high income premium)
+            3.5-4.5%: +1
+            < 3.0%: -2
+
+      - Framing for the reason field: explicitly cite the percentile and rate direction.
+        Good day: "BSV at 12% of 90-day range with 10Y rising +0.18% over 20d —
+        deploy idle cash, locking in 4.8% yield at a 90-day-low entry."
+        Bad day: "BSV at 84% of 90-day range with 10Y falling — wait for a pullback.
+        Gap remains 5% but timing is poor."
+      - Do NOT invoke RSI/MACD/Bollinger in the reason. Those signals are noise for bonds.
 
    12b. LONG/INTERMEDIATE-DURATION BOND ETFs (marked "LONG/INTERMEDIATE-DURATION BOND ETF"):
       - Intermediate (7-10yr) and long-term (20yr+) funds are RATE-SENSITIVE.
@@ -594,6 +638,8 @@ function buildDecisionPrompt(
   report: AllocationReport,
   macroContext: string = "",
   reasoningContext: string = "",
+  technicals: Record<string, TechnicalData> = {},
+  priceData: Record<string, QuoteData> = {},
 ): string {
   // Build key metrics per ticker so the decision stage has actual numbers for limit prices etc.
   const metricsMap: Record<string, string[]> = {};
@@ -604,6 +650,19 @@ function buildDecisionPrompt(
       lines.push(`  52w position: ${Math.round(item.fiftyTwoWeekPercent * 100)}%`);
     lines.push(`  Gap: ${item.gapPct > 0 ? "+" : ""}${item.gapPct.toFixed(1)}%`);
     if (item.trailingPE != null) lines.push(`  P/E: ${item.trailingPE.toFixed(1)}`);
+    // Short-duration bond ETFs need percentile + distribution yield visible in stage 2
+    // so the decision step can apply framework 12a's timing modifiers directly.
+    if (SHORT_DURATION_BOND_ETFS.has(item.ticker.toUpperCase())) {
+      const tech = technicals[item.ticker];
+      const quote = priceData[item.ticker];
+      if (tech?.pricePercentile90d != null) {
+        lines.push(`  90d percentile: ${tech.pricePercentile90d}%`);
+      }
+      if (quote?.distributionYield != null) {
+        lines.push(`  Distribution yield: ${(quote.distributionYield * 100).toFixed(2)}%`);
+      }
+      lines.push(`  Asset type: SHORT-DURATION BOND ETF (apply framework 12a)`);
+    }
     metricsMap[item.ticker] = lines;
   }
 
@@ -674,8 +733,13 @@ WAIT: Overvalued, risky, or no allocation need.
    A boosts confidence ~5pts, D reduces ~10pts.
 7. BOTTOM SIGNAL: Flag if 2+ bottom indicators (crypto) or 3+ (stocks/ETFs): RSI<30, volume contraction >20%, price below 200MA, death cross. Bottom signal alone does NOT justify STRONG BUY.
 8. BOND ETFs: Do NOT use RSI/MACD/Bollinger as buy signals.
-   Short-duration: MAX BUY. NEVER STRONG BUY. Scale confidence by gap size:
-     gap≥5% → 70-75%, gap 3-5% → 60-70%, gap 1-3% → 45-55%, gap<1% → HOLD.
+   Short-duration: MAX BUY. NEVER STRONG BUY. NEVER suggest a limit price (set to 0).
+     Score with base + timing modifiers (see framework 12a in the observation prompt):
+       Base by gap — gap≥5%: 55 (max 95), gap 3-5%: 45 (max 85), gap 1-3%: 35 (max 72), gap<1%: HOLD.
+       Modifiers: 90-day price percentile (≤20% → +12, ≥80% → -15);
+                  10Y 20d change (>+0.15% → +6, <-0.15% → -12);
+                  distribution yield (>4.5% → +3, <3% → -2).
+     Frame the reason around percentile + rate direction, NOT momentum indicators.
    Long/intermediate: STRONG BUY valid when gap≥2% + near 52w low + rate environment suggests peak.
 9. Sort by confidence descending.`;
 }
@@ -757,7 +821,14 @@ export async function aiAnalyze(
     // ── Stage 2: Plan — decisions from observations ──
     console.log("Running AI analysis (Stage 2: Decide)...");
     const reasoningContext = formatReasoningContext(reasoningHistory);
-    const decPrompt = buildDecisionPrompt(observations, report, macroContext, reasoningContext);
+    const decPrompt = buildDecisionPrompt(
+      observations,
+      report,
+      macroContext,
+      reasoningContext,
+      technicals,
+      priceData,
+    );
 
     const decResponse = await geminiWithRetry(ai, decPrompt, responseSchema);
 
@@ -777,6 +848,22 @@ export async function aiAnalyze(
 
     // Run guard validation pipeline (bond ETF cap, earnings proximity, STRONG BUY criteria, etc.)
     validateRecommendations(recommendations, priceData, technicals, report);
+
+    // Action-tier sort: STRONG BUY first, then BUY, then HOLD, then WAIT.
+    // Within each tier, sort by confidence descending. Done AFTER guards so any
+    // late re-labels (e.g. STRONG BUY → BUY for short-duration bonds) are honored.
+    const ACTION_PRIORITY: Record<string, number> = {
+      "STRONG BUY": 0,
+      BUY: 1,
+      HOLD: 2,
+      WAIT: 3,
+    };
+    recommendations.sort((a, b) => {
+      const pa = ACTION_PRIORITY[a.action] ?? 99;
+      const pb = ACTION_PRIORITY[b.action] ?? 99;
+      if (pa !== pb) return pa - pb;
+      return b.confidence - a.confidence;
+    });
 
     // Log summary
     for (const rec of recommendations) {
