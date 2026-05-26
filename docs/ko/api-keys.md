@@ -1,0 +1,142 @@
+---
+title: API 키
+layout: default
+nav_order: 5
+lang: ko
+permalink: /api-keys.html
+---
+
+# API 키
+
+Richfolio는 최대 5개의 외부 서비스를 사용하며, 모두 넉넉한 무료 플랜이 있습니다. Resend와 수신 이메일만 필수이고 — 나머지는 모두 선택 사항입니다.
+
+각 키는 저장소 Secret으로 추가하세요: Settings → Secrets and variables → Actions → **Secrets** 탭. `RECIPIENT_EMAIL`은 **Variable**로 추가하는 것이 좋습니다 (보기/편집이 더 쉽습니다).
+
+![GitHub Actions Secrets](../screenshots/github_actions_secrets.png){: style="max-width: 500px; display: block; margin: 16px auto;" }
+
+---
+
+## Resend (이메일) — 필수
+{: .text-green-200}
+
+Resend가 HTML 이메일 리포트를 전달합니다.
+
+1. [resend.com](https://resend.com)으로 이동하여 가입
+2. 대시보드에서 **API Keys**로 이동
+3. **Create API Key**를 클릭하고 이름을 지정한 뒤 키를 복사
+4. GitHub Secret으로 추가 — 이름: `RESEND_API_KEY`, 값: 방금 복사한 키
+
+**무료 플랜:** 월 3,000건 이메일. 기본 발신자는 `onboarding@resend.dev`. 사용자 도메인을 인증하지 않은 경우 **계정 소유자 이메일**로만 발송할 수 있습니다 (Dashboard → Domains → Add Domain → DNS 레코드 추가).
+
+---
+
+## 수신 이메일 — 필수
+{: .text-green-200}
+
+GitHub **Variable**로 추가 (Secret이 아님): 이름: `RECIPIENT_EMAIL`, 값: 본인 이메일 주소.
+
+사용자 도메인을 인증하지 않은 경우 Resend 계정 이메일과 일치해야 합니다.
+
+---
+
+## NewsAPI (헤드라인) — 선택
+{: .text-yellow-200}
+
+일일 브리핑에 종목별 톱 헤드라인을 제공합니다.
+
+1. [newsapi.org](https://newsapi.org)로 이동하여 가입
+2. API 키가 대시보드에 바로 표시됩니다
+3. GitHub Secret으로 추가 — 이름: `NEWS_API_KEY`, 값: 대시보드의 키
+
+**무료 플랜:** 1일 100건 요청. Richfolio는 배칭을 통해 실행당 약 4건만 사용합니다. 최근 24시간 헤드라인만 반환됩니다. 설정하지 않으면 브리핑이 뉴스 없이 실행됩니다.
+
+---
+
+## Google Gemini (AI 분석) — 선택
+{: .text-yellow-200}
+
+Gemini 2.5 Flash로 AI 매수 추천을 구동합니다.
+
+1. [aistudio.google.com/apikey](https://aistudio.google.com/apikey)로 이동
+2. **Create API Key**를 클릭하고 Google Cloud 프로젝트를 선택(또는 새로 생성)
+3. 키를 복사하고 GitHub Secret으로 추가 — 이름: `GEMINI_API_KEY`, 값: 방금 복사한 키
+
+**무료 플랜:** 1일 250건 요청, 분당 10건 요청. Richfolio는 실행당 1건의 요청을 사용합니다 (STRONG BUY 종목당 상세 분석을 위해 1건 추가). 새 키는 할당량 활성화에 몇 분이 걸릴 수 있습니다 (처음에는 429 오류가 보일 수 있음). 설정되지 않았거나 할당량이 소진되면 격차 기반 추천으로 폴백합니다.
+
+### Gemini 모델 계층에 대한 참고
+
+Google의 가격 페이지는 Gemini 2.5 Pro가 입력 및 출력 토큰 모두에 대해 ["무료"](https://ai.google.dev/gemini-api/docs/pricing#gemini-2.5-pro)라고 명시합니다. 하지만 실제로는 무료 플랜의 Pro 요청이 사용량이 적어도 `429 RESOURCE_EXHAUSTED` 오류에 자주 부딪힙니다. Google은 무료 플랜의 실제 RPD(requests per day) 한도를 공개하지 않으며; 제3자 자료에 따르면 Pro는 약 100 RPD로 제한되는 것으로 보이지만 실제 수치는 계정에 따라 다른 듯하며 보장되지 않습니다.
+
+**Richfolio는 모든 AI 호출에 Gemini 2.5 Flash를 사용합니다** (메인 분석과 STRONG BUY 상세 분석 모두). Flash가 더 넉넉하고 안정적인 무료 플랜 할당량을 가지고 있기 때문입니다. 금융 분석 텍스트에서의 품질 차이는 무시할 만합니다.
+
+### 다른 AI 모델 사용하기
+
+유료 Gemini 플랜이 있거나 완전히 다른 제공사를 사용하고 싶다면 모델은 쉽게 교체할 수 있습니다. AI 호출은 두 파일에 있습니다:
+
+- `src/aiAnalysis.ts` — 메인 매수 추천 (약 225번째 줄)
+- `src/detailedAnalysis.ts` — STRONG BUY 상세 분석 (약 119번째 줄)
+
+**Gemini Pro로 전환하기** (유료 할당량이 있다면):
+
+```typescript
+// In both files, change:
+model: "gemini-2.5-flash",
+// To:
+model: "gemini-2.5-pro",
+```
+
+**Claude나 다른 제공사로 전환하기**, `@google/genai` 호출을 해당 제공사의 SDK로 교체해야 합니다. 예를 들어 Anthropic SDK를 사용하는 경우:
+
+```typescript
+// npm install @anthropic-ai/sdk
+import Anthropic from "@anthropic-ai/sdk";
+const client = new Anthropic(); // uses ANTHROPIC_API_KEY env var
+const response = await client.messages.create({
+  model: "claude-sonnet-4-20250514",
+  max_tokens: 1024,
+  messages: [{ role: "user", content: prompt }],
+});
+```
+
+프롬프트와 JSON 파싱 로직은 그대로 유지됩니다 — API 호출 방식만 달라집니다. 제공사의 API 키를 GitHub Secret으로 추가하세요.
+
+---
+
+## Telegram 봇 — 선택
+{: .text-yellow-200}
+
+Telegram 계정으로 압축된 요약을 전달합니다.
+
+### 봇 생성
+
+1. Telegram에서 **@BotFather**를 검색
+2. `/newbot` 전송
+3. 이름(예: "Richfolio Brief")과 사용자 이름(`bot`으로 끝나야 함, 예: `richfolio_brief_bot`)을 지정
+4. BotFather가 봇 토큰으로 응답합니다 — 복사하세요
+
+### chat ID 가져오기
+
+1. Telegram에서 **@userinfobot**을 검색하여 시작
+2. 봇이 당신의 숫자 사용자 ID로 응답합니다 — 이것이 chat ID입니다
+
+**중요:** Richfolio를 실행하기 전에 새 봇에게 아무 메시지(예: "hi")를 보내세요 — 봇이 당신에게 메시지를 보내려면 먼저 이 단계가 필요합니다.
+
+둘 다 GitHub Secret으로 추가하세요:
+
+- 이름: `TELEGRAM_BOT_TOKEN`, 값: BotFather가 준 토큰
+- 이름: `TELEGRAM_CHAT_ID`, 값: 본인 숫자 사용자 ID
+
+**참고:** 설정되지 않으면 브리핑이 Telegram을 건너뜁니다. 메시지는 압축된 요약입니다 (전체 HTML이 아님). 메시지당 4,096자 제한 — 필요하면 뉴스가 잘립니다.
+
+---
+
+## 요약
+
+| 키 | 필수 | 서비스 |
+|-----|------|--------|
+| `RESEND_API_KEY` | 예 | 이메일 전달 |
+| `RECIPIENT_EMAIL` | 예 | 본인 이메일 주소 |
+| `NEWS_API_KEY` | 아니오 | 뉴스 헤드라인 |
+| `GEMINI_API_KEY` | 아니오 | AI 매수 추천 |
+| `TELEGRAM_BOT_TOKEN` | 아니오 | Telegram 전달 |
+| `TELEGRAM_CHAT_ID` | 아니오 | Telegram 전달 |
