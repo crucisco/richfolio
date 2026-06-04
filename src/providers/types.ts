@@ -4,11 +4,39 @@ import type { NewsItem } from "../fetchNews.js";
 import type { TechnicalData } from "../fetchTechnicals.js";
 import type { ReasoningHistory } from "../state.js";
 
+// ── Per-provider score (multi-AI mode) ─────────────────────────────
+// One entry per active provider, attached to AIBuyRecommendation.providers
+// when more than one provider is active. In single-provider mode, the
+// providers array is undefined and renderers stay in their original layout.
+export interface ProviderScore {
+  providerId: string;
+  providerLabel: string;
+  providerShortLabel: string;
+  action: string;
+  confidence: number;
+  reason: string;
+  suggestedBuyValue: number;
+  suggestedLimitPrice?: number;
+  limitPriceReason?: string;
+  valueRating?: string;
+  bottomSignal?: string;
+}
+
 // ── Recommendation shape (canonical home) ──────────────────────────
 // Lives here so multiple providers can produce values of this type. The
 // existing `src/aiAnalysis.ts` re-exports this for backward compat — all
 // pre-existing `import type { AIBuyRecommendation } from "./aiAnalysis.js"`
 // imports keep working unchanged.
+//
+// In single-provider mode (only one of GEMINI_API_KEY / ANTHROPIC_API_KEY
+// set), `providers` and `agreement` are undefined and `action`/`confidence`
+// reflect that one provider's verdict.
+//
+// In multi-provider mode (≥2 keys set), `providers` carries the per-AI
+// breakdown, `agreement` indicates how aligned the providers are, and
+// `action`/`confidence` reflect the consensus across providers (see
+// src/aiAggregation.ts for the algorithm). Renderers branch on
+// `rec.providers && rec.providers.length >= 2` to switch to multi-mode UI.
 export interface AIBuyRecommendation {
   ticker: string;
   tickerFullName: string | null;
@@ -22,6 +50,10 @@ export interface AIBuyRecommendation {
   valueRating?: string;
   bottomSignal?: string;
   analysisUrl?: string;
+  /** Set only in multi-provider mode (length ≥2). */
+  providers?: ProviderScore[];
+  /** Set only when providers is set. */
+  agreement?: "unanimous" | "majority" | "split";
 }
 
 // ── Provider input bundle ──────────────────────────────────────────

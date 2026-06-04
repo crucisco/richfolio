@@ -204,7 +204,7 @@ export class ClaudeProvider implements AIProvider {
     }
 
     console.log(`Running Claude analysis (Stage 2: Decide, ${model})...`);
-    const reasoningContext = formatReasoningContext(reasoningHistory);
+    const reasoningContext = formatReasoningContext(reasoningHistory, this.id);
     const decPrompt = buildDecisionPrompt(
       observations,
       report,

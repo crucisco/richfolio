@@ -198,7 +198,7 @@ export class GeminiProvider implements AIProvider {
     }
 
     console.log("Running Gemini analysis (Stage 2: Decide)...");
-    const reasoningContext = formatReasoningContext(reasoningHistory);
+    const reasoningContext = formatReasoningContext(reasoningHistory, this.id);
     const decPrompt = buildDecisionPrompt(
       observations,
       report,

@@ -91,6 +91,51 @@ function earningsBadge(daysToEarnings: number | null): string {
   return `<span style="background:${color}22;color:${color};padding:1px 6px;border-radius:3px;font-size:10px;font-weight:bold;margin-left:6px;">earnings ${daysToEarnings}d</span>`;
 }
 
+// ── Multi-AI helpers (rendered only when providers.length >= 2) ─────
+function agreementBadge(agreement: AIBuyRecommendation["agreement"]): string {
+  if (!agreement) return "";
+  const colors: Record<string, string> = {
+    unanimous: S.green,
+    majority: S.yellow,
+    split: S.red,
+  };
+  const c = colors[agreement] ?? S.muted;
+  return `<span style="background:${c}22;color:${c};padding:1px 6px;border-radius:3px;font-size:10px;font-weight:bold;margin-left:6px;">${agreement}</span>`;
+}
+
+function isMultiAI(rec: AIBuyRecommendation): boolean {
+  return !!rec.providers && rec.providers.length >= 2;
+}
+
+// Per-provider breakdown shown beneath the consensus reason. Each row:
+// short tag (G/C/...) · provider label · action badge · confidence · short reason.
+function buildProvidersBreakdown(rec: AIBuyRecommendation): string {
+  if (!isMultiAI(rec)) return "";
+  const providers = rec.providers!;
+  const rows = providers
+    .map((p) => {
+      const reasonSnippet =
+        p.reason.length > 140 ? p.reason.slice(0, 137).trimEnd() + "…" : p.reason;
+      return `
+    <tr>
+      <td style="padding:4px 8px 4px 0;vertical-align:top;white-space:nowrap;">
+        <span style="display:inline-block;background:${S.accent};color:${S.text};padding:1px 6px;border-radius:3px;font-size:10px;font-weight:bold;min-width:18px;text-align:center;">${escapeHtmlAttr(p.providerShortLabel)}</span>
+        <span style="font-size:11px;color:${S.muted};margin-left:6px;">${escapeHtmlAttr(p.providerLabel)}</span>
+      </td>
+      <td style="padding:4px 8px 4px 0;vertical-align:top;white-space:nowrap;">
+        ${actionBadge(p.action)} <span style="font-size:11px;color:${S.muted};">${p.confidence}%</span>
+      </td>
+      <td style="padding:4px 0;vertical-align:top;font-size:11px;color:${S.text};">${reasonSnippet}</td>
+    </tr>`;
+    })
+    .join("");
+
+  return `
+  <table cellpadding="0" cellspacing="0" border="0" style="margin-top:8px;width:100%;border-collapse:collapse;border-top:1px solid ${S.border};">
+    ${rows}
+  </table>`;
+}
+
 // ── Technical Insight (STRONG BUY + BUY with extras) ────────────────
 function buildTechnicalInsight(rec: AIBuyRecommendation, tech: TechnicalData | undefined): string {
   const hasExtras =
@@ -164,10 +209,19 @@ function buildAISection(
   const actionable = aiRecs.filter((r) => r.action === "STRONG BUY" || r.action === "BUY");
   const others = aiRecs.filter((r) => r.action !== "STRONG BUY" && r.action !== "BUY");
 
+  // Detect provider mode from the first rec's providers[] (uniformly populated
+  // by the orchestrator). When ≥2 active, surface that in the subtitle.
+  const firstWithProviders = aiRecs.find((r) => r.providers && r.providers.length > 0);
+  const providerLabels = firstWithProviders?.providers?.map((p) => p.providerLabel) ?? ["Gemini"];
+  const multiAIMode = providerLabels.length >= 2;
+  const subtitle = multiAIMode
+    ? `Powered by ${providerLabels.join(" + ")} — scores averaged across providers. Per-AI breakdown below each ticker.`
+    : `Powered by ${providerLabels[0]} — considers fundamentals, valuation, allocation gap, technicals, and news sentiment.`;
+
   return `
 <tr><td style="padding:20px 24px 8px;background:${S.cardBg};">
   <h2 style="margin:0;font-size:16px;color:${S.blue};">AI Buy Recommendations</h2>
-  <p style="margin:4px 0 0;font-size:11px;color:${S.muted};">Powered by Gemini — considers fundamentals, valuation, allocation gap, technicals, and news sentiment.</p>
+  <p style="margin:4px 0 0;font-size:11px;color:${S.muted};">${subtitle}</p>
 </td></tr>
 <tr><td style="padding:0 24px 16px;background:${S.cardBg};">
   ${
@@ -178,11 +232,12 @@ function buildAISection(
   <div style="padding:10px 0;border-bottom:1px solid ${S.border};">
     <div style="margin-bottom:4px;">
       <span style="font-weight:bold;font-size:14px;color:#fff;" title="${escapeHtmlAttr(rec.tickerFullName ?? rec.ticker)}">${rec.ticker}</span>
-      &nbsp;${actionBadge(rec.action)}${valueRatingBadge(rec.valueRating)}${earningsBadge(priceData[rec.ticker]?.daysToEarnings ?? null)}
-      &nbsp;${confidenceBar(rec.confidence)}
+      &nbsp;${actionBadge(rec.action)}${valueRatingBadge(rec.valueRating)}${earningsBadge(priceData[rec.ticker]?.daysToEarnings ?? null)}${isMultiAI(rec) ? agreementBadge(rec.agreement) : ""}
+      &nbsp;${confidenceBar(rec.confidence)}${isMultiAI(rec) ? `<span style="font-size:10px;color:${S.muted};margin-left:6px;">avg</span>` : ""}
       ${rec.suggestedBuyValue > 0 ? `<span style="float:right;font-weight:bold;color:#fff;">${fmt$(rec.suggestedBuyValue)}</span>` : ""}
     </div>
     <div style="font-size:12px;color:${S.text};margin-top:4px;">${rec.reason}</div>
+    ${buildProvidersBreakdown(rec)}
     ${buildTechnicalInsight(rec, technicals[rec.ticker])}
     ${
       rec.action === "STRONG BUY" && rec.analysisUrl

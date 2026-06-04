@@ -1,6 +1,7 @@
 import { validateRecommendations } from "./guards.js";
 import { defaultCurrency } from "./config.js";
 import { buildActiveProviders } from "./providers/index.js";
+import { aggregateMultiAI, type ProviderRun } from "./aiAggregation.js";
 import type { AIBuyRecommendation, AIProvider, AIProviderInput } from "./providers/types.js";
 
 // ── Action-tier sort ───────────────────────────────────────────────
@@ -50,15 +51,18 @@ async function runProvider(
   return recommendations;
 }
 
-// ── Phase 1 entry point ────────────────────────────────────────────
-// Runs all active providers. Today only Gemini will be active in production;
-// Phase 2 adds Claude and Phase 3 makes this return aggregated multi-provider
-// shape. For now it returns the single provider's recommendations directly so
-// downstream consumers see no shape change.
+// ── Entry point ────────────────────────────────────────────────────
+// Runs all active providers. Behaviour depends on provider count:
+//   0 → fallback (empty list, gap-based recommendations downstream)
+//   1 → identical to pre-multi-AI behaviour: returns that provider's recs
+//   2+ → runs providers concurrently, aggregates into a single rec list
+//       per ticker with `providers[]` carrying the per-AI breakdown. The
+//       top-level action/confidence reflect the consensus (see
+//       src/aiAggregation.ts).
 //
-// If multiple providers happen to be active in Phase 1 (e.g. someone exports
-// an unreleased Claude provider for testing), we log a warning and use the
-// first available one — keeping behaviour stable until Phase 3 lands.
+// If a provider throws mid-run, we log it and drop that provider — surviving
+// providers continue. If all providers fail, we return [] and the caller
+// falls back to gap-based recommendations.
 export async function runAIAnalysis(
   input: AIProviderInput,
 ): Promise<AIBuyRecommendation[]> {
@@ -69,40 +73,124 @@ export async function runAIAnalysis(
     return [];
   }
 
-  if (providers.length > 1) {
-    console.warn(
-      `Multiple AI providers active (${providers.map((p) => p.id).join(", ")}) — ` +
-        `Phase 1 uses only the first (${providers[0].id}). Multi-AI aggregation lands in Phase 3.`,
-    );
+  if (providers.length === 1) {
+    return runSingle(providers[0], input);
   }
 
-  const provider = providers[0];
+  return runMulti(providers, input);
+}
 
+// ── Single-provider path (identical to pre-multi-AI behaviour) ─────
+// Attaches a length-1 `providers` array per rec so saveReasoningHistory and
+// renderers can iterate uniformly. Renderers gate on length ≥ 2 to switch
+// to the multi-mode UI — length 1 still presents as single-AI in emails.
+async function runSingle(
+  provider: AIProvider,
+  input: AIProviderInput,
+): Promise<AIBuyRecommendation[]> {
   try {
     const recommendations = await runProvider(provider, input);
-    sortByActionTier(recommendations);
-
     for (const rec of recommendations) {
-      if (rec.action === "STRONG BUY" || rec.action === "BUY") {
-        console.log(
-          `  ${rec.action} ${rec.ticker} (${rec.confidence}%)` +
-            (rec.valueRating ? ` [${rec.valueRating}]` : "") +
-            (rec.bottomSignal ? ` [${rec.bottomSignal}]` : "") +
-            ` — ${rec.reason}` +
-            (rec.suggestedLimitPrice
-              ? ` [limit: ${rec.suggestedLimitPrice} ${rec.originalCurrency}]`
-              : ""),
-        );
-      }
+      rec.providers = [
+        {
+          providerId: provider.id,
+          providerLabel: provider.label,
+          providerShortLabel: provider.shortLabel,
+          action: rec.action,
+          confidence: rec.confidence,
+          reason: rec.reason,
+          suggestedBuyValue: rec.suggestedBuyValue,
+          suggestedLimitPrice: rec.suggestedLimitPrice,
+          limitPriceReason: rec.limitPriceReason,
+          valueRating: rec.valueRating,
+          bottomSignal: rec.bottomSignal,
+        },
+      ];
     }
-    console.log(
-      `AI analysis complete (${provider.label}) — ${recommendations.length} tickers scored\n`,
-    );
-
+    sortByActionTier(recommendations);
+    logRecommendationSummary(provider.label, recommendations);
     return recommendations;
   } catch (err) {
     console.error(`AI analysis failed (${provider.label}):`, (err as Error).message);
     console.log("Falling back to gap-based recommendations\n");
     return [];
   }
+}
+
+// ── Multi-provider path ────────────────────────────────────────────
+// Runs all providers concurrently, then aggregates per ticker. A single
+// provider failure does not fail the whole run — we drop the failed provider
+// from the aggregation and continue with whoever survived. If exactly one
+// provider survives, we degrade gracefully to single-provider rendering.
+async function runMulti(
+  providers: AIProvider[],
+  input: AIProviderInput,
+): Promise<AIBuyRecommendation[]> {
+  console.log(
+    `Running multi-AI analysis (${providers.map((p) => p.label).join(" + ")})...\n`,
+  );
+
+  const settled = await Promise.allSettled(
+    providers.map(async (provider) => ({
+      provider,
+      recommendations: await runProvider(provider, input),
+    })),
+  );
+
+  const runs: ProviderRun[] = [];
+  for (let i = 0; i < settled.length; i++) {
+    const result = settled[i];
+    if (result.status === "fulfilled") {
+      runs.push(result.value);
+    } else {
+      console.error(
+        `Provider ${providers[i].label} failed: ${(result.reason as Error)?.message ?? result.reason}`,
+      );
+    }
+  }
+
+  if (runs.length === 0) {
+    console.log("All providers failed — falling back to gap-based recommendations\n");
+    return [];
+  }
+
+  if (runs.length === 1) {
+    console.log(
+      `Only ${runs[0].provider.label} survived — degrading to single-provider mode for this run`,
+    );
+    const recs = runs[0].recommendations;
+    sortByActionTier(recs);
+    logRecommendationSummary(runs[0].provider.label, recs);
+    return recs;
+  }
+
+  const aggregated = aggregateMultiAI(runs);
+  sortByActionTier(aggregated);
+  logRecommendationSummary(
+    runs.map((r) => r.provider.label).join(" + "),
+    aggregated,
+  );
+  return aggregated;
+}
+
+// ── Log helper ─────────────────────────────────────────────────────
+function logRecommendationSummary(label: string, recs: AIBuyRecommendation[]): void {
+  for (const rec of recs) {
+    if (rec.action === "STRONG BUY" || rec.action === "BUY") {
+      const breakdown =
+        rec.providers && rec.providers.length >= 2
+          ? ` [${rec.providers.map((p) => `${p.providerShortLabel}:${p.action.replace(" ", "")}${p.confidence}`).join(" ")}]${rec.agreement ? ` ${rec.agreement}` : ""}`
+          : "";
+      console.log(
+        `  ${rec.action} ${rec.ticker} (${rec.confidence}%)${breakdown}` +
+          (rec.valueRating ? ` [${rec.valueRating}]` : "") +
+          (rec.bottomSignal ? ` [${rec.bottomSignal}]` : "") +
+          ` — ${rec.reason}` +
+          (rec.suggestedLimitPrice
+            ? ` [limit: ${rec.suggestedLimitPrice} ${rec.originalCurrency}]`
+            : ""),
+      );
+    }
+  }
+  console.log(`AI analysis complete (${label}) — ${recs.length} tickers scored\n`);
 }
