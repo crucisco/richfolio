@@ -225,6 +225,22 @@ function buildPrompt(
           `    Volume change (7d vs 30d avg): ${tech.volumeChange7d > 0 ? "+" : ""}${tech.volumeChange7d}%${tech.volumeChange7d < -20 ? " (contraction)" : tech.volumeChange7d > 50 ? " (surge)" : ""}`,
         );
       }
+      // Single-day volume spike + price change. Pair these to detect
+      // distribution (spike + down day) vs accumulation (spike + up day) —
+      // signals the 7d/30d smoothing in volumeChange7d would otherwise hide.
+      if (tech.volumeLatest1d != null && tech.priceChange1d != null) {
+        const v = tech.volumeLatest1d;
+        const p = tech.priceChange1d;
+        let interp = "";
+        if (v >= 1.5 && p <= -1) {
+          interp = " ← DISTRIBUTION (high volume + down day, bearish breakdown)";
+        } else if (v >= 1.5 && p >= 1) {
+          interp = " ← ACCUMULATION (high volume + up day, bullish confirmation)";
+        } else if (v >= 1.5) {
+          interp = " ← HIGH VOLUME (1-day spike, watch direction)";
+        }
+        lines.push(`    Latest day: vol ${v}x avg, price ${p > 0 ? "+" : ""}${p}%${interp}`);
+      }
     }
 
     if (
@@ -351,6 +367,8 @@ INSTRUCTIONS:
    d) When Bollinger %B < 0.1 (near lower band) but MACD histogram is still falling: do NOT buy the dip yet — wait for MACD histogram to flatten or turn up. Reduce confidence by 15pts.
    e) When both MACD and Bollinger agree (e.g., bullish crossover + bounce off lower band, or bearish crossover + rejection at upper band): boost confidence by 5pts — confirming signal but not a free pass.
    f) A Bollinger Squeeze with a simultaneous MACD crossover is a strong entry signal — boost confidence by 5-10pts (not sufficient alone for STRONG BUY).
+   g) DISTRIBUTION OVERRIDE: when "Latest day" technicals show DISTRIBUTION (high volume + down day ≥ -1%), "price below 200-day MA" must NOT count as a bullish price-level signal — it's confirming a breakdown, not signalling cheapness. Reduce confidence by 15pts. STRONG BUY is disqualified unless RSI is deeply oversold (< 25) AND price is more than 5% below 200MA AND MACD histogram has stopped falling (flat or rising). Default to BUY or WAIT.
+   h) MACRO DISCORDANCE: when the trade thesis depends on a macro tailwind that the macro context contradicts, downgrade. Examples: long gold/GLD with DXY spiking (5d change > +0.5); long long-duration bonds with 10Y rising fast (> +0.15% over 20d); long multinationals with DXY > 103. Reduce confidence by 10pts and surface the discordance in the reason field.
 10. VALUE INVESTING FRAMEWORK (individual stocks only — skip for ETFs and crypto):
    Rate each stock A through D based on these criteria:
    - ROE > 15% (strong profitability)

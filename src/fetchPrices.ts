@@ -199,6 +199,11 @@ export interface MacroIndicators {
   sp50052wPct: number | null; // S&P 500 52-week position (0-1)
   oilPrice: number | null; // CL=F — WTI crude
   dxy: number | null; // DX-Y.NYB — USD index
+  // 5-trading-day change in DXY (percentage points; +0.5 = +0.5 index pts over week).
+  // Positive = strengthening dollar → headwind for gold, multinationals, commodities.
+  // The level-only view (just "DXY 100.07 = neutral") missed cases where DXY had
+  // just spiked on a macro release; this surfaces the momentum.
+  dxyChange5d: number | null;
 }
 
 const MACRO_TICKERS: Record<string, string> = {
@@ -220,6 +225,7 @@ export async function fetchMacroIndicators(): Promise<MacroIndicators> {
     sp50052wPct: null,
     oilPrice: null,
     dxy: null,
+    dxyChange5d: null,
   };
 
   for (const [ticker, key] of Object.entries(MACRO_TICKERS)) {
@@ -286,10 +292,37 @@ export async function fetchMacroIndicators(): Promise<MacroIndicators> {
           indicators.oilPrice = Math.round(price * 100) / 100;
           console.log(`  ✓ Oil (WTI): $${indicators.oilPrice}`);
           break;
-        case "dxy":
+        case "dxy": {
           indicators.dxy = Math.round(price * 100) / 100;
-          console.log(`  ✓ USD (DXY): ${indicators.dxy}`);
+          // 5-day change captures macro-shock moves (NFP, CPI, FOMC) that the
+          // level-only label hides. The level can read "neutral" while a fresh
+          // breakout has just occurred — equities and gold care a lot about which.
+          try {
+            const period1 = new Date();
+            period1.setDate(period1.getDate() - 14);
+            const chart = await yahooFinance.chart(ticker, {
+              period1,
+              period2: new Date(),
+              interval: "1d",
+            });
+            const closes = (chart.quotes ?? [])
+              .map((q) => q.close)
+              .filter((c): c is number => c != null);
+            if (closes.length >= 6) {
+              const recent = closes[closes.length - 1];
+              const prior = closes[closes.length - 6];
+              indicators.dxyChange5d = Math.round((recent - prior) * 100) / 100;
+            }
+          } catch (err) {
+            console.warn(`  ⚠ DXY chart fetch failed — ${(err as Error).message}`);
+          }
+          const changeStr =
+            indicators.dxyChange5d != null
+              ? ` (5d: ${indicators.dxyChange5d > 0 ? "+" : ""}${indicators.dxyChange5d})`
+              : "";
+          console.log(`  ✓ USD (DXY): ${indicators.dxy}${changeStr}`);
           break;
+        }
       }
     } catch (err) {
       console.warn(`  ⚠ ${ticker}: macro fetch failed — ${(err as Error).message}`);
@@ -370,7 +403,23 @@ export function formatMacroContext(m: MacroIndicators): string {
           : m.dxy >= 97
             ? "neutral"
             : "weak — tailwind for multinationals";
-    lines.push(`- USD Index (DXY): ${m.dxy} (${level})`);
+    let trendStr = "";
+    if (m.dxyChange5d != null) {
+      const c = m.dxyChange5d;
+      // ~0.5 index points = ~0.5% on DXY — a meaningful weekly move
+      const direction =
+        c > 0.5
+          ? "spiking — fresh dollar strength, headwind for gold/multinationals/EM"
+          : c > 0.2
+            ? "rising — strengthening dollar"
+            : c >= -0.2
+              ? "flat"
+              : c >= -0.5
+                ? "falling — softening dollar"
+                : "dropping fast — dollar weakness, tailwind for gold/multinationals";
+      trendStr = ` | 5d change: ${c > 0 ? "+" : ""}${c} (${direction})`;
+    }
+    lines.push(`- USD Index (DXY): ${m.dxy} (${level})${trendStr}`);
   }
 
   if (lines.length === 1) return ""; // No data fetched
