@@ -40,6 +40,7 @@ Fork한 저장소에서: **Settings** → **Secrets and variables** → **Action
 | `CONFIG_JSON` | **Variables** | 필수 — 포트폴리오 JSON ([형식](configuration)) |
 | `CLAUDE_MODEL` | **Variables** | 선택 — Claude 모델 재정의 (기본값: `claude-sonnet-4-6`) |
 | `AI_DETAILED_PROVIDER` | **Variables** | 선택 — STRONG BUY 분석 페이지에 `gemini` 또는 `claude` 강제 지정 |
+| `TIME_ZONE` | **Variables** | 선택 — 이메일의 날짜·시간 형식에 사용할 IANA 타임존(예: `Australia/Sydney`, `America/New_York`, `Europe/London`). 기본값: `UTC`. Workflow가 Node 네이티브 `TZ` 환경 변수로 매핑합니다 |
 
 {: .important}
 > **왜 `CONFIG_JSON`을 Secret이 아닌 Variable로 두는가:** Variable은 GitHub UI에서 읽을 수 있어, 매번 전체 JSON을 다시 붙여넣지 않고도 보유 종목을 직접 편집할 수 있습니다. 단점은 저장소 읽기 권한이 있는 사람이 자산 배분을 볼 수 있다는 점입니다 — 비공개 fork라면 괜찮지만, 나중에 공개로 전환할 계획이라면 고려할 사항입니다.

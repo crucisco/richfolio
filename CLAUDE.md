@@ -82,6 +82,7 @@ When both `GEMINI_API_KEY` and `ANTHROPIC_API_KEY` are set, multi-AI mode auto-e
 - `RECIPIENT_EMAIL` — email address for briefs (variable, not secret — easy to view/edit)
 - `CLAUDE_MODEL` — optional override for Claude model (default: `claude-sonnet-4-6`; cheaper option: `claude-haiku-4-5-20251001`)
 - `AI_DETAILED_PROVIDER` — optional, force `gemini` or `claude` for the STRONG BUY detailed analysis page (default: first available)
+- `TIME_ZONE` — optional IANA timezone for date/time formatting in emails and Telegram (e.g. `Australia/Sydney`). Default: `UTC`. The workflow maps this to Node's POSIX-standard `TZ` env var via `TZ: ${{ vars.TIME_ZONE || 'UTC' }}` at workflow scope, so every `new Date()` / `toLocaleDateString` call renders in the configured zone with zero code changes. For local dev, set `TZ=...` directly in `.env` (also POSIX).
 
 ## Key Gotchas
 

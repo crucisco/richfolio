@@ -26,6 +26,14 @@ on:
         required: false
         type: string
 
+# Workflow-level env applies to every step in every job. The user-facing
+# Actions Variable is `TIME_ZONE` (matches the rest of richfolio's env
+# naming style); we map it to POSIX `TZ` here, which Node.js natively
+# respects so all date formatting in emails/Telegram renders in the
+# configured zone with zero code changes. Defaults to UTC if unset.
+env:
+  TZ: ${{ vars.TIME_ZONE || 'UTC' }}
+
 jobs:
   send-brief:
     runs-on: ubuntu-latest

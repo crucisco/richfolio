@@ -38,6 +38,7 @@ In your forked repo: **Settings** → **Secrets and variables** → **Actions**.
 | `CONFIG_JSON` | **Variables** | Required — your portfolio JSON ([format](configuration)) |
 | `CLAUDE_MODEL` | **Variables** | Optional — override Claude model (default: `claude-sonnet-4-6`) |
 | `AI_DETAILED_PROVIDER` | **Variables** | Optional — force `gemini` or `claude` for STRONG BUY analysis page |
+| `TIME_ZONE` | **Variables** | Optional — IANA timezone for date/time formatting in emails (e.g. `Australia/Sydney`, `America/New_York`, `Europe/London`). Default: `UTC`. Workflow maps it to Node's native `TZ` env var |
 
 {: .important}
 > **Why `CONFIG_JSON` is a variable, not a secret:** Variables stay readable in the GitHub UI, so you can edit your holdings directly without re-pasting the whole JSON every time. The trade-off is that anyone with read access to the repo can see your allocations — fine for a private fork, something to consider if you ever go public.

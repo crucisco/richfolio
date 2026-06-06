@@ -40,6 +40,7 @@ fork したリポジトリで：**Settings** → **Secrets and variables** → *
 | `CONFIG_JSON` | **Variables** | 必須 — あなたのポートフォリオ JSON（[形式](configuration)） |
 | `CLAUDE_MODEL` | **Variables** | オプション — Claude モデルを上書き（デフォルト：`claude-sonnet-4-6`） |
 | `AI_DETAILED_PROVIDER` | **Variables** | オプション — STRONG BUY 分析ページで `gemini` または `claude` を強制指定 |
+| `TIME_ZONE` | **Variables** | オプション — Email 内の日付・時刻フォーマットに使う IANA タイムゾーン（例：`Australia/Sydney`、`America/New_York`、`Europe/London`）。デフォルト：`UTC`。Workflow が Node ネイティブの `TZ` 環境変数にマッピングします |
 
 {: .important}
 > **なぜ `CONFIG_JSON` は Secret ではなく Variable なのか：** Variable は GitHub UI で可読のままなので、毎回 JSON 全体を貼り直すことなく直接保有を編集できます。トレードオフは、リポジトリへの読み取りアクセス権を持つ人なら誰でも配分を見られることです — プライベートな fork なら問題ありませんが、公開する場合は考慮すべきポイントです。

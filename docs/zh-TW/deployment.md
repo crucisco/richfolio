@@ -40,6 +40,7 @@ GitHub 預設會停用新 Fork 儲存庫的 Actions。前往你的 Fork → **Ac
 | `CONFIG_JSON` | **Variables** | 必要 — 你的投資組合 JSON([格式](configuration)) |
 | `CLAUDE_MODEL` | **Variables** | 可選 — 覆寫 Claude 模型(預設:`claude-sonnet-4-6`) |
 | `AI_DETAILED_PROVIDER` | **Variables** | 可選 — 強制 STRONG BUY 分析頁面使用 `gemini` 或 `claude` |
+| `TIME_ZONE` | **Variables** | 可選 — Email 中日期 / 時間格式所用的 IANA 時區(例如 `Australia/Sydney`、`America/New_York`、`Europe/London`)。預設:`UTC`。Workflow 會映射為 Node 原生的 `TZ` 環境變數 |
 
 {: .important}
 > **為什麼 `CONFIG_JSON` 用 Variable 而不是 Secret:** Variable 在 GitHub UI 中是可見的,你可以直接在頁面上修改持倉,不用每次都重新貼整段 JSON。代價是任何有儲存庫讀取權限的人都會看到你的資產配置 — 對私有 Fork 沒問題,但如果之後要公開儲存庫就要留意。

@@ -40,6 +40,7 @@ En tu repo forkeado: **Settings** → **Secrets and variables** → **Actions**.
 | `CONFIG_JSON` | **Variables** | Requerido — el JSON de tu portafolio ([formato](configuration)) |
 | `CLAUDE_MODEL` | **Variables** | Opcional — sobrescribe el modelo de Claude (por defecto: `claude-sonnet-4-6`) |
 | `AI_DETAILED_PROVIDER` | **Variables** | Opcional — fuerza `gemini` o `claude` para la página de análisis de STRONG BUY |
+| `TIME_ZONE` | **Variables** | Opcional — zona horaria IANA para el formato de fecha/hora en los correos (p. ej. `Australia/Sydney`, `America/New_York`, `Europe/London`). Por defecto: `UTC`. El workflow lo mapea a la variable de entorno nativa `TZ` de Node |
 
 {: .important}
 > **Por qué `CONFIG_JSON` es una variable, no un secret:** Las Variables permanecen legibles en la UI de GitHub, así puedes editar tus tenencias directamente sin re-pegar el JSON entero cada vez. La contrapartida es que cualquiera con acceso de lectura al repo puede ver tus asignaciones — bien para un fork privado, algo a considerar si alguna vez lo haces público.
