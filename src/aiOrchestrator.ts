@@ -63,9 +63,7 @@ async function runProvider(
 // If a provider throws mid-run, we log it and drop that provider — surviving
 // providers continue. If all providers fail, we return [] and the caller
 // falls back to gap-based recommendations.
-export async function runAIAnalysis(
-  input: AIProviderInput,
-): Promise<AIBuyRecommendation[]> {
+export async function runAIAnalysis(input: AIProviderInput): Promise<AIBuyRecommendation[]> {
   const providers = buildActiveProviders();
 
   if (providers.length === 0) {
@@ -126,9 +124,7 @@ async function runMulti(
   providers: AIProvider[],
   input: AIProviderInput,
 ): Promise<AIBuyRecommendation[]> {
-  console.log(
-    `Running multi-AI analysis (${providers.map((p) => p.label).join(" + ")})...\n`,
-  );
+  console.log(`Running multi-AI analysis (${providers.map((p) => p.label).join(" + ")})...\n`);
 
   const settled = await Promise.allSettled(
     providers.map(async (provider) => ({
@@ -166,10 +162,7 @@ async function runMulti(
 
   const aggregated = aggregateMultiAI(runs);
   sortByActionTier(aggregated);
-  logRecommendationSummary(
-    runs.map((r) => r.provider.label).join(" + "),
-    aggregated,
-  );
+  logRecommendationSummary(runs.map((r) => r.provider.label).join(" + "), aggregated);
   return aggregated;
 }
 

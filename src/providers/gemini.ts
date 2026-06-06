@@ -1,11 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { formatReasoningContext } from "../state.js";
 import type { AIBuyRecommendation, AIProvider, AIProviderInput } from "./types.js";
-import {
-  buildObservationPrompt,
-  buildDecisionPrompt,
-  type TickerObservation,
-} from "./prompts.js";
+import { buildObservationPrompt, buildDecisionPrompt, type TickerObservation } from "./prompts.js";
 
 // ── Gemini-specific JSON schemas ───────────────────────────────────
 // These use `@google/genai`'s `Type` enum and are not portable to other SDKs.
@@ -99,7 +95,8 @@ const decisionSchema = {
       },
       limitPriceReason: {
         type: Type.STRING,
-        description: "1 sentence explaining the limit price level, e.g. 'Near 50-day MA support at $218'",
+        description:
+          "1 sentence explaining the limit price level, e.g. 'Near 50-day MA support at $218'",
       },
       valueRating: {
         type: Type.STRING,

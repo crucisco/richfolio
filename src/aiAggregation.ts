@@ -1,8 +1,4 @@
-import type {
-  AIBuyRecommendation,
-  AIProvider,
-  ProviderScore,
-} from "./providers/types.js";
+import type { AIBuyRecommendation, AIProvider, ProviderScore } from "./providers/types.js";
 
 // ── Per-provider results bundle ────────────────────────────────────
 // Input to aggregateMultiAI(). One entry per active provider, with the

@@ -1,11 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { formatReasoningContext } from "../state.js";
 import type { AIBuyRecommendation, AIProvider, AIProviderInput } from "./types.js";
-import {
-  buildObservationPrompt,
-  buildDecisionPrompt,
-  type TickerObservation,
-} from "./prompts.js";
+import { buildObservationPrompt, buildDecisionPrompt, type TickerObservation } from "./prompts.js";
 
 // ── Tool-use JSON schemas ──────────────────────────────────────────
 // Anthropic's structured-output pattern is "tool use" — we declare a tool

@@ -120,7 +120,9 @@ export function saveReasoningHistory(
   }
 
   writeFileSync(REASONING_FILE, JSON.stringify(history, null, 2));
-  console.log(`Reasoning history saved (${dates.length} days, ${todaysSnapshots.length} snapshots)`);
+  console.log(
+    `Reasoning history saved (${dates.length} days, ${todaysSnapshots.length} snapshots)`,
+  );
 }
 
 export function loadReasoningHistory(): ReasoningHistory {
@@ -149,10 +151,7 @@ export function loadReasoningHistory(): ReasoningHistory {
  * should see only its own past convictions, not another AI's. If `providerId`
  * is undefined (e.g. legacy callers), all snapshots are flattened together.
  */
-export function formatReasoningContext(
-  history: ReasoningHistory,
-  providerId?: string,
-): string {
+export function formatReasoningContext(history: ReasoningHistory, providerId?: string): string {
   const dates = Object.keys(history.snapshots).sort();
   if (dates.length === 0) return "";
 

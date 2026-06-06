@@ -133,8 +133,7 @@ function buildPrompt(
         );
       })(),
       `  Dividend yield: ${item.dividendYield != null ? (item.dividendYield * 100).toFixed(2) + "%" : "N/A"}`,
-      quote?.distributionYield != null &&
-      quote.distributionYield !== (item.dividendYield ?? -1)
+      quote?.distributionYield != null && quote.distributionYield !== (item.dividendYield ?? -1)
         ? `  Distribution yield (SEC/12m): ${(quote.distributionYield * 100).toFixed(2)}%`
         : null,
       `  Beta: ${item.beta?.toFixed(2) ?? "N/A"}`,
@@ -219,9 +218,7 @@ function buildPrompt(
             : p >= 80
               ? " ← NEAR 90-DAY HIGH (poor entry)"
               : "";
-        lines.push(
-          `    90-day price percentile: ${p}% (0=at 90d low, 100=at 90d high)${tag}`,
-        );
+        lines.push(`    90-day price percentile: ${p}% (0=at 90d low, 100=at 90d high)${tag}`);
       }
       if (tech.volumeChange7d != null) {
         lines.push(

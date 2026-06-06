@@ -65,8 +65,9 @@ function buildMessage(
     if (actionable.length > 0) {
       // Mode detection — multi-AI if any rec has ≥2 providers attached
       const firstWithProviders = aiRecs.find((r) => r.providers && r.providers.length > 0);
-      const providerLabels =
-        firstWithProviders?.providers?.map((p) => p.providerLabel) ?? ["Gemini"];
+      const providerLabels = firstWithProviders?.providers?.map((p) => p.providerLabel) ?? [
+        "Gemini",
+      ];
       const multiAIMode = providerLabels.length >= 2;
       const heading = multiAIMode
         ? `🤖 <b>AI Recommendations (${providerLabels.join(" + ")}):</b>`
