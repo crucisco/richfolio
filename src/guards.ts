@@ -29,12 +29,46 @@ export function validateRecommendations(
   technicals: Record<string, TechnicalData>,
   report: AllocationReport,
 ): void {
+  guardOverweightHold(recs, report);
   guardBondETFCap(recs, report);
   guardEarningsProximity(recs, priceData);
   guardStrongBuyCriteria(recs, report, technicals);
   guardMaxStrongBuy(recs);
   guardConfidenceSanity(recs);
   guardBuyValueSanity(recs, report);
+}
+
+// ── Guard 0: Overweight positions must HOLD ─────────────────────────
+// The decision prompt says "Only recommend tickers with allocation need
+// (gap > 0%)" but Claude in particular has been observed violating this —
+// anchoring on multi-day reasoning-history conviction and producing BUY
+// recommendations on already-overweight tickers. Programmatic enforcement
+// here makes the rule binding regardless of which provider returned it.
+//
+// Threshold is `gap <= 0` (strictly at/over target). A position at exactly
+// the target doesn't warrant adding; only underweight positions do.
+function guardOverweightHold(recs: AIBuyRecommendation[], report: AllocationReport): void {
+  const gapMap: Record<string, number> = {};
+  for (const item of report.items) {
+    gapMap[item.ticker] = item.gapPct;
+  }
+
+  for (const rec of recs) {
+    if (rec.action !== "BUY" && rec.action !== "STRONG BUY") continue;
+    const gap = gapMap[rec.ticker];
+    if (gap == null) continue;
+    if (gap <= 0) {
+      console.log(
+        `  [guard:overweight] ${rec.ticker}: gap ${gap.toFixed(1)}% (at/over target) → HOLD`,
+      );
+      rec.action = "HOLD";
+      rec.suggestedBuyValue = 0;
+      if (rec.suggestedLimitPrice) {
+        rec.suggestedLimitPrice = 0;
+        rec.limitPriceReason = "";
+      }
+    }
+  }
 }
 
 // ── Guard 1: Bond ETF cap ──────────────────────────────────────────
