@@ -40,6 +40,19 @@ export interface TechnicalData {
   stochD: number | null; // 3-period SMA of %K
   // OBV (On-Balance Volume) trend
   obvTrend: "rising" | "falling" | "flat" | null;
+  // Price percentile within rolling 90-day range (0=at 90d low, 100=at 90d high).
+  // Cheap entry signal for low-volatility instruments (esp. short-duration bond ETFs)
+  // where 52w-position is too coarse to distinguish day-to-day timing.
+  pricePercentile90d: number | null;
+  // Latest-day volume vs 30-day average (ratio; 1.0 = matches average, 2.0 = double).
+  // Captures single-day distribution/accumulation events that the 7d/30d smoothing
+  // in `volumeChange7d` dilutes. Pair with `priceChange1d` to interpret:
+  //   high volume + down day  = distribution (bearish, breakdown risk)
+  //   high volume + up day    = accumulation (bullish, breakout confirmation)
+  volumeLatest1d: number | null;
+  // Latest-day price change % (today's close vs yesterday's close).
+  // Used together with `volumeLatest1d` to classify volume spikes.
+  priceChange1d: number | null;
 }
 
 // ── Computation helpers ─────────────────────────────────────────────
@@ -372,6 +385,41 @@ async function fetchOne(ticker: string, fxRate: number = 1): Promise<TechnicalDa
     // OBV trend
     const obvTrend = computeOBVTrend(quotes);
 
+    // 90-day price percentile (0=at 90d low, 100=at 90d high)
+    let pricePercentile90d: number | null = null;
+    if (closes.length >= 90) {
+      const last90 = closes.slice(-90);
+      const min90 = Math.min(...last90);
+      const max90 = Math.max(...last90);
+      if (max90 > min90) {
+        pricePercentile90d = Math.round(((currentPrice - min90) / (max90 - min90)) * 1000) / 10;
+      }
+    }
+
+    // Single-day volume spike ratio: today's volume / 30-day average. Surfaces
+    // distribution/accumulation events that `volumeChange7d` averages away.
+    let volumeLatest1d: number | null = null;
+    if (volumes.length >= 31) {
+      const latest = volumes[volumes.length - 1];
+      const prior30 = volumes.slice(-31, -1);
+      const avgPrior30 = prior30.reduce((s, v) => s + v, 0) / prior30.length;
+      if (avgPrior30 > 0) {
+        volumeLatest1d = Math.round((latest / avgPrior30) * 100) / 100;
+      }
+    }
+
+    // Single-day price change % (today's close vs yesterday's close). Lets the
+    // AI classify a volume spike as accumulation (up day) vs distribution
+    // (down day) without us hard-coding the interpretation here.
+    let priceChange1d: number | null = null;
+    if (closes.length >= 2) {
+      const todayClose = closes[closes.length - 1];
+      const prevClose = closes[closes.length - 2];
+      if (prevClose > 0) {
+        priceChange1d = Math.round(((todayClose - prevClose) / prevClose) * 1000) / 10;
+      }
+    }
+
     return {
       ticker,
       sma50: Math.round(sma50 * 100) / 100,
@@ -400,6 +448,9 @@ async function fetchOne(ticker: string, fxRate: number = 1): Promise<TechnicalDa
       stochK: stochResult?.k ?? null,
       stochD: stochResult?.d ?? null,
       obvTrend,
+      pricePercentile90d,
+      volumeLatest1d,
+      priceChange1d,
     };
   } catch (err) {
     console.error(`  ✗ ${ticker}: chart fetch failed —`, (err as Error).message);
@@ -439,8 +490,13 @@ export async function fetchTechnicals(
           (data.atrPercent != null ? ` ATR${data.atrPercent}%` : "") +
           (data.stochK != null ? ` Stoch${data.stochK}` : "") +
           (data.obvTrend != null ? ` OBV:${data.obvTrend}` : "") +
+          (data.pricePercentile90d != null ? ` p90d=${data.pricePercentile90d}%` : "") +
           (data.volumeChange7d != null
             ? ` vol${data.volumeChange7d > 0 ? "+" : ""}${data.volumeChange7d}%`
+            : "") +
+          (data.volumeLatest1d != null ? ` vol1d=${data.volumeLatest1d}x` : "") +
+          (data.priceChange1d != null
+            ? ` Δ1d${data.priceChange1d > 0 ? "+" : ""}${data.priceChange1d}%`
             : ""),
       );
     }

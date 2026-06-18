@@ -1,0 +1,160 @@
+---
+title: API キー
+layout: default
+nav_order: 5
+lang: ja
+permalink: /api-keys.html
+---
+
+# API キー
+
+Richfolio は最大 5 つの外部サービスを利用しますが、すべて寛大な無料枠があります。必須なのは Resend と受信メールアドレスだけ — それ以外はすべてオプションです。
+
+各キーはリポジトリの Secret として追加します：Settings → Secrets and variables → Actions → **Secrets** タブ。`RECIPIENT_EMAIL` は代わりに **Variable** として追加してください（閲覧／編集が容易です）。
+
+![GitHub Actions Secrets](../screenshots/github_actions_secrets.png){: style="max-width: 500px; display: block; margin: 16px auto;" }
+
+---
+
+## Resend（メール）— 必須
+{: .text-green-200}
+
+Resend は HTML メールレポートを配信します。
+
+1. [resend.com](https://resend.com) にアクセスしてサインアップ
+2. ダッシュボードで **API Keys** に移動
+3. **Create API Key** をクリックし、名前を付けてキーをコピー
+4. GitHub Secret として追加 — 名前：`RESEND_API_KEY`、値：先ほどコピーしたキー
+
+**無料枠：** 月 3,000 通。デフォルトでは `onboarding@resend.dev` から送信されます。カスタムドメインを認証しない限り、**アカウント所有者のメールアドレス**にしか送信できません（Dashboard → Domains → Add Domain → DNS レコードを追加）。
+
+---
+
+## 受信メールアドレス — 必須
+{: .text-green-200}
+
+GitHub の **Variable**（Secret ではない）として追加：名前：`RECIPIENT_EMAIL`、値：あなたのメールアドレス。
+
+カスタムドメインを認証していない場合、Resend アカウントのメールアドレスと一致している必要があります。
+
+---
+
+## NewsAPI（ヘッドライン）— オプション
+{: .text-yellow-200}
+
+毎日のブリーフに各ティッカーのトップヘッドラインを提供します。
+
+1. [newsapi.org](https://newsapi.org) にアクセスしてサインアップ
+2. ダッシュボードに API キーがすぐに表示されます
+3. GitHub Secret として追加 — 名前：`NEWS_API_KEY`、値：ダッシュボードのキー
+
+**無料枠：** 1 日 100 リクエスト。Richfolio はバッチング経由で 1 回の実行につき約 4 リクエストを使用します。直近 24 時間のヘッドラインのみ。未設定の場合、ブリーフはニュースなしで実行されます。
+
+---
+
+## AI プロバイダ — AI 推奨を有効にするには少なくとも 1 つ必要
+
+Richfolio は 2 つの AI プロバイダをサポートしています：**Google Gemini** と **Anthropic Claude**。AI による買い推奨を利用するには、少なくとも 1 つを設定してください。**両方**を設定すると並列で実行され、スコアが平均化され、各推奨の横にプロバイダごとの内訳が表示されます。どちらも設定されていない場合は、ギャップベースの推奨にフォールバックします（AI なし）。
+
+| モード | 設定 | 出力 |
+|---|---|---|
+| **AI なし** | どちらのキーも未設定 | ギャップベースの推奨のみ |
+| **シングル AI** | 一方のキーを設定 | 従来と同じ — ティッカーごとに 1 セットのアクション＋確信度 |
+| **マルチ AI** | 両方のキーを設定 | ティッカーごとのコンセンサスアクション＋平均化された確信度。各推奨の下にプロバイダごとの内訳を表示。STRONG BUY は全プロバイダの一致が必要 |
+
+---
+
+## Google Gemini — オプション
+{: .text-yellow-200}
+
+Gemini 2.5 Flash で AI 買い推奨を提供します。
+
+1. [aistudio.google.com/apikey](https://aistudio.google.com/apikey) にアクセス
+2. **Create API Key** をクリックし、Google Cloud プロジェクトを選択（または新規作成）
+3. キーをコピーし、GitHub Secret として追加 — 名前：`GEMINI_API_KEY`、値：先ほどコピーしたキー
+
+**無料枠：** 1 日 250 リクエスト、1 分あたり 10 リクエスト。Richfolio は 1 回の実行につき 2 リクエストを使用します（Stage 1 Observe ＋ Stage 2 Decide）。さらに詳細分析のために STRONG BUY ティッカー 1 つにつき 1 リクエスト。新しいキーは有効化に数分かかることがあります（最初は 429 エラーが見えるかもしれません）。
+
+### Gemini モデルティアに関する注記
+
+Google の価格ページでは Gemini 2.5 Pro が入力／出力トークンとも[「無料」](https://ai.google.dev/gemini-api/docs/pricing#gemini-2.5-pro)であると記載されています。しかし実際には、無料枠の Pro リクエストは使用量が少なくても頻繁に `429 RESOURCE_EXHAUSTED` エラーに当たります。Google は無料枠の実際の RPD（1 日あたりリクエスト数）上限を公表していません。サードパーティの情報源では Pro は約 100 RPD に制限されているかもしれないと示唆されていますが、実際の数字はアカウントによって異なるようで、保証はありません。
+
+**Richfolio はデフォルトで Gemini 2.5 Flash を使用しています**。Flash の方が寛大で信頼性の高い無料枠クォータを持つためです。金融分析テキストにおける品質の差は無視できます。
+
+---
+
+## Anthropic Claude — オプション
+{: .text-yellow-200}
+
+Claude（デフォルトでは Sonnet 4.6）で AI 買い推奨を提供します。
+
+1. [console.anthropic.com](https://console.anthropic.com) にアクセスしてサインアップ
+2. **API Keys** → **Create Key** に移動し、名前を付けてキーをコピー
+3. GitHub Secret として追加 — 名前：`ANTHROPIC_API_KEY`、値：先ほどコピーしたキー
+
+**料金：** Anthropic には Gemini のような恒久的な無料枠はありませんが、新規アカウントには少額のスタータークレジットが付与されます。また、Richfolio のワークロードでの Sonnet 利用は通常 1 日あたり数セント程度です。コストを最小化するには `CLAUDE_MODEL=claude-haiku-4-5-20251001` を設定してください（Haiku ティアは大幅に安価ですが、このワークロードを十分にこなせます）。
+
+### Gemini との併用（マルチ AI モード）
+
+`GEMINI_API_KEY` と `ANTHROPIC_API_KEY` の両方が設定されている場合、Richfolio は分析ごとに両プロバイダを並行実行し、結果を集約します：
+
+- ティッカーごとの**コンセンサスアクション**を多数決で決定（同数の場合は確信度の合計で同点を解消）
+- **平均化された確信度**を目立たせて表示し、その下にプロバイダごとのスコアを表示
+- **STRONG BUY は全プロバイダの一致が必要** — どれか 1 つでも反対した場合、コンセンサスは BUY に上限が下がります
+- アクションの隣に**合意ラベル**（unanimous／majority／split）をバッジで表示
+
+実行中にあるプロバイダが失敗した場合（レート制限、クォータ枯渇、ネットワークエラー）、もう一方のプロバイダが単独で続行し、その回のメール／Telegram はシングル AI 表示にフォールバックします。
+
+### STRONG BUY 詳細分析ページを生成するプロバイダの選択
+
+両方のプロバイダが有効な場合、STRONG BUY ごとの分析ページ（「More Details」リンク）は単一のプロバイダによって生成されます — デフォルトではレジストリ順で最初に利用可能なもの（Gemini、次に Claude）。次の環境変数で上書きできます：
+
+| 環境変数 | 値 | 効果 |
+|---|---|---|
+| `AI_DETAILED_PROVIDER` | `gemini` | 詳細分析を Gemini に強制（GEMINI_API_KEY の設定が必要） |
+| `AI_DETAILED_PROVIDER` | `claude` | 詳細分析を Claude に強制（ANTHROPIC_API_KEY の設定が必要） |
+| `CLAUDE_MODEL` | 例：`claude-haiku-4-5-20251001` | Claude モデルを上書き（デフォルト：`claude-sonnet-4-6`） |
+
+---
+
+## Telegram ボット — オプション
+{: .text-yellow-200}
+
+Telegram アカウントに凝縮されたサマリーを配信します。
+
+### ボットを作成
+
+1. Telegram を開き、**@BotFather** を検索
+2. `/newbot` を送信
+3. 名前（例：「Richfolio Brief」）とユーザー名（`bot` で終わる必要があります、例：`richfolio_brief_bot`）を選択
+4. BotFather がボットトークンを返信します — コピーしてください
+
+### chat ID を取得
+
+1. Telegram で **@userinfobot** を検索して起動
+2. 数値のユーザー ID が返ってきます — これがあなたの chat ID です
+
+**重要：** Richfolio を実行する前に、新しいボットに何かメッセージ（例：「hi」）を送ってください — ボットがあなたにメッセージを送れるようになる前に必要です。
+
+両方を GitHub Secret として追加します：
+
+- 名前：`TELEGRAM_BOT_TOKEN`、値：BotFather からのトークン
+- 名前：`TELEGRAM_CHAT_ID`、値：あなたの数値ユーザー ID
+
+**注意：** 未設定の場合、ブリーフは Telegram をスキップします。メッセージは凝縮されたサマリー（フル HTML ではない）です。1 メッセージあたり 4,096 文字の制限 — 必要に応じてニュースが切り詰められます。
+
+---
+
+## まとめ
+
+| キー | 必須 | サービス |
+|-----|----------|---------|
+| `RESEND_API_KEY` | はい | メール配信 |
+| `RECIPIENT_EMAIL` | はい | あなたのメールアドレス |
+| `NEWS_API_KEY` | いいえ | ニュースヘッドライン |
+| `GEMINI_API_KEY` | いいえ | AI プロバイダ（Google Gemini） |
+| `ANTHROPIC_API_KEY` | いいえ | AI プロバイダ（Anthropic Claude） |
+| `TELEGRAM_BOT_TOKEN` | いいえ | Telegram 配信 |
+| `TELEGRAM_CHAT_ID` | いいえ | Telegram 配信 |
+| `CLAUDE_MODEL` | いいえ | Claude モデルを上書き（デフォルト：`claude-sonnet-4-6`） |
+| `AI_DETAILED_PROVIDER` | いいえ | STRONG BUY 分析ページに `gemini` または `claude` を強制 |

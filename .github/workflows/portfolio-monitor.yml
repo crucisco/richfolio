@@ -34,14 +34,22 @@ on:
         required: false
         type: string
 
+# Workflow-level env applies to every step in every job. The user-facing
+# Actions Variable is `TIME_ZONE` (matches the rest of richfolio's env
+# naming style); we map it to POSIX `TZ` here, which Node.js natively
+# respects so all date formatting in emails/Telegram renders in the
+# configured zone with zero code changes. Defaults to UTC if unset.
+env:
+  TZ: ${{ vars.TIME_ZONE || 'UTC' }}
+
 jobs:
   send-brief:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
@@ -54,7 +62,7 @@ jobs:
           CONFIG_JSON: ${{ vars.CONFIG_JSON }}
 
       # Restore intraday state cache (morning baseline for comparison)
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: state/
           key: intraday-state-${{ github.run_id }}
@@ -81,6 +89,9 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}
+          AI_DETAILED_PROVIDER: ${{ vars.AI_DETAILED_PROVIDER }}
           RECIPIENT_EMAIL: ${{ vars.RECIPIENT_EMAIL }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -100,6 +111,9 @@ jobs:
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}
+          AI_DETAILED_PROVIDER: ${{ vars.AI_DETAILED_PROVIDER }}
           RECIPIENT_EMAIL: ${{ vars.RECIPIENT_EMAIL }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -110,6 +124,9 @@ jobs:
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}
+          AI_DETAILED_PROVIDER: ${{ vars.AI_DETAILED_PROVIDER }}
           RECIPIENT_EMAIL: ${{ vars.RECIPIENT_EMAIL }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -120,9 +137,9 @@ jobs:
     if: github.event_name == 'schedule'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm

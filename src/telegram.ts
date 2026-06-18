@@ -63,18 +63,44 @@ function buildMessage(
       .filter((r) => r.action === "STRONG BUY" || r.action === "BUY")
       .slice(0, 5);
     if (actionable.length > 0) {
-      lines.push("🤖 <b>AI Recommendations:</b>");
+      // Mode detection — multi-AI if any rec has ≥2 providers attached
+      const firstWithProviders = aiRecs.find((r) => r.providers && r.providers.length > 0);
+      const providerLabels = firstWithProviders?.providers?.map((p) => p.providerLabel) ?? [
+        "Gemini",
+      ];
+      const multiAIMode = providerLabels.length >= 2;
+      const heading = multiAIMode
+        ? `🤖 <b>AI Recommendations (${providerLabels.join(" + ")}):</b>`
+        : "🤖 <b>AI Recommendations:</b>";
+      lines.push(heading);
       for (const rec of actionable) {
         const earningsDays = priceData[rec.ticker]?.daysToEarnings;
         const earningsTag =
           earningsDays != null && earningsDays <= 14 ? ` [earnings ${earningsDays}d]` : "";
+        const isMulti = !!rec.providers && rec.providers.length >= 2;
+        const confLabel = isMulti ? `avg ${rec.confidence}%` : `${rec.confidence}%`;
+        const agreementTag = isMulti && rec.agreement ? ` ${rec.agreement}` : "";
         lines.push(
-          `${actionEmoji(rec.action)} <b>${rec.action} ${rec.ticker}</b> (${rec.confidence}%)` +
+          `${actionEmoji(rec.action)} <b>${rec.action} ${rec.ticker}</b> (${confLabel})${agreementTag}` +
             (rec.valueRating ? ` [${rec.valueRating}]` : "") +
             earningsTag +
             (rec.suggestedBuyValue > 0 ? ` — ${fmt$(rec.suggestedBuyValue)}` : ""),
         );
-        lines.push(`   <i>${rec.reason}</i>`);
+        // Per-provider breakdown (multi-AI mode only)
+        if (isMulti) {
+          const perAI = rec
+            .providers!.map(
+              (p) =>
+                `${escapeHtmlText(p.providerShortLabel)} ${actionEmoji(p.action)}${p.confidence}`,
+            )
+            .join(" · ");
+          lines.push(`   ${perAI}`);
+        }
+        // Critical: Telegram HTML mode rejects unrecognised < as malformed tags.
+        // AI-generated prose routinely contains "<30%" / "<35" / "%B < 0.15"
+        // which Telegram parses as "<30%>" and 400s the whole message. Escape
+        // every AI-supplied string before injection.
+        lines.push(`   <i>${escapeHtmlText(rec.reason)}</i>`);
         // Technical insight for STRONG BUY only
         if (rec.action === "STRONG BUY") {
           const tech = technicals[rec.ticker];
@@ -93,11 +119,11 @@ function buildMessage(
           if (rec.suggestedLimitPrice && rec.suggestedLimitPrice > 0) {
             lines.push(
               `   💡 Limit: ${fmt$(rec.suggestedLimitPrice)}` +
-                (rec.limitPriceReason ? ` — ${rec.limitPriceReason}` : ""),
+                (rec.limitPriceReason ? ` — ${escapeHtmlText(rec.limitPriceReason)}` : ""),
             );
           }
           if (rec.bottomSignal && rec.bottomSignal !== "") {
-            lines.push(`   🔻 Bottom: ${rec.bottomSignal}`);
+            lines.push(`   🔻 Bottom: ${escapeHtmlText(rec.bottomSignal)}`);
           }
           if (rec.analysisUrl) {
             lines.push(`   📋 <a href="${rec.analysisUrl}">More Details</a>`);
@@ -308,14 +334,21 @@ function buildIntradayMessage(alerts: IntradayAlert[]): string {
     lines.push(
       `${actionEmoji(alert.currentAction)} <b>${alert.currentAction} ${alert.ticker}</b> (${triggerLabel})`,
     );
+    // Only show the numeric confidence delta when the action stayed the same.
+    // STRONG BUY 82% → BUY 67% (-15) is misleading: the two scales aren't
+    // directly comparable across action tiers — the action change IS the signal.
+    const sameAction = alert.morningAction === alert.currentAction;
+    const deltaSuffix = sameAction
+      ? ` (${alert.confidenceDelta >= 0 ? "+" : ""}${alert.confidenceDelta})`
+      : "";
     lines.push(
-      `   ${alert.morningAction} ${alert.morningConfidence}% → ${alert.currentAction} ${alert.currentConfidence}% (${alert.confidenceDelta >= 0 ? "+" : ""}${alert.confidenceDelta})`,
+      `   ${alert.morningAction} ${alert.morningConfidence}% → ${alert.currentAction} ${alert.currentConfidence}%${deltaSuffix}`,
     );
     if (Math.abs(alert.priceDelta) >= 0.01) {
       const dir = alert.priceDelta < 0 ? "down" : "up";
       lines.push(`   Price ${dir} ${Math.abs(alert.priceDelta).toFixed(1)}% since morning`);
     }
-    lines.push(`   <i>${alert.reason}</i>`);
+    lines.push(`   <i>${escapeHtmlText(alert.reason)}</i>`);
     if (alert.suggestedBuyValue > 0) {
       lines.push(`   Suggested: ${fmt$(alert.suggestedBuyValue)}`);
     }
@@ -387,10 +420,10 @@ export async function sendRefreshTelegram(
   lines.push("");
   lines.push(`${actionEmoji(rec.action)} <b>${rec.action}</b> (${rec.confidence}%)`);
   lines.push(`💰 Price: ${fmt$(quote.price)} ${defaultCurrency} (${priceSource})`);
-  lines.push(`<i>${rec.reason}</i>`);
+  lines.push(`<i>${escapeHtmlText(rec.reason)}</i>`);
   if (rec.suggestedLimitPrice && rec.suggestedLimitPrice > 0) {
     lines.push(
-      `💡 Limit: ${fmt$(rec.suggestedLimitPrice)}${rec.limitPriceReason ? " — " + rec.limitPriceReason : ""}`,
+      `💡 Limit: ${fmt$(rec.suggestedLimitPrice)}${rec.limitPriceReason ? " — " + escapeHtmlText(rec.limitPriceReason) : ""}`,
     );
   }
   if (rec.suggestedBuyValue > 0) {

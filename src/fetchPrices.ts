@@ -29,6 +29,10 @@ export interface QuoteData {
   fiftyTwoWeekPercent: number | null;
   marketCap: number | null;
   dividendYield: number | null;
+  // ETF/fund-only: Yahoo's `summaryDetail.yield` (trailing 12-month fund yield, decimal).
+  // For bond ETFs this is the SEC/distribution yield and is the relevant income figure.
+  // Null for individual stocks.
+  distributionYield: number | null;
   beta: number | null;
   holdings: HoldingInfo[] | null;
   // Fundamental data (from financialData module)
@@ -145,6 +149,7 @@ async function fetchOne(yahooTicker: string): Promise<QuoteData | null> {
         return mc != null ? mc / priceDivisor : null;
       })(),
       dividendYield: result.summaryDetail?.dividendYield ?? null,
+      distributionYield: result.summaryDetail?.yield ?? null,
       beta: result.defaultKeyStatistics?.beta ?? null,
       holdings,
       returnOnEquity: fin?.returnOnEquity ?? null,
@@ -185,11 +190,20 @@ async function fetchOne(yahooTicker: string): Promise<QuoteData | null> {
 export interface MacroIndicators {
   vix: number | null; // ^VIX — fear index
   treasury10y: number | null; // ^TNX — 10-year yield (%)
+  // 20-trading-day change in 10Y yield (percentage points; +0.20 = yield rose 0.20%).
+  // Positive = rates rising → bond prices fell → cheaper entry for bond ETFs.
+  // Negative = rates falling → bond rally already happening → chasing.
+  treasury10yChange20d: number | null;
   sp500Price: number | null; // ^GSPC — S&P 500 level
   sp500YtdPct: number | null; // S&P 500 YTD return (%)
   sp50052wPct: number | null; // S&P 500 52-week position (0-1)
   oilPrice: number | null; // CL=F — WTI crude
   dxy: number | null; // DX-Y.NYB — USD index
+  // 5-trading-day change in DXY (percentage points; +0.5 = +0.5 index pts over week).
+  // Positive = strengthening dollar → headwind for gold, multinationals, commodities.
+  // The level-only view (just "DXY 100.07 = neutral") missed cases where DXY had
+  // just spiked on a macro release; this surfaces the momentum.
+  dxyChange5d: number | null;
 }
 
 const MACRO_TICKERS: Record<string, string> = {
@@ -205,11 +219,13 @@ export async function fetchMacroIndicators(): Promise<MacroIndicators> {
   const indicators: MacroIndicators = {
     vix: null,
     treasury10y: null,
+    treasury10yChange20d: null,
     sp500Price: null,
     sp500YtdPct: null,
     sp50052wPct: null,
     oilPrice: null,
     dxy: null,
+    dxyChange5d: null,
   };
 
   for (const [ticker, key] of Object.entries(MACRO_TICKERS)) {
@@ -225,10 +241,37 @@ export async function fetchMacroIndicators(): Promise<MacroIndicators> {
           indicators.vix = Math.round(price * 100) / 100;
           console.log(`  ✓ VIX: ${indicators.vix}`);
           break;
-        case "treasury10y":
+        case "treasury10y": {
           indicators.treasury10y = Math.round(price * 100) / 100;
-          console.log(`  ✓ 10Y yield: ${indicators.treasury10y}%`);
+          // Fetch 30 calendar days of history to compute 20-trading-day change.
+          // Failure here is non-fatal — we still have the current yield.
+          try {
+            const period1 = new Date();
+            period1.setDate(period1.getDate() - 35);
+            const chart = await yahooFinance.chart(ticker, {
+              period1,
+              period2: new Date(),
+              interval: "1d",
+            });
+            const closes = (chart.quotes ?? [])
+              .map((q) => q.close)
+              .filter((c): c is number => c != null);
+            if (closes.length >= 21) {
+              const recent = closes[closes.length - 1];
+              const prior = closes[closes.length - 21];
+              indicators.treasury10yChange20d = Math.round((recent - prior) * 1000) / 1000;
+            }
+          } catch (err) {
+            // Soft failure: 20d change is a nice-to-have, not required.
+            console.warn(`  ⚠ 10Y chart fetch failed — ${(err as Error).message}`);
+          }
+          const changeStr =
+            indicators.treasury10yChange20d != null
+              ? ` (20d: ${indicators.treasury10yChange20d > 0 ? "+" : ""}${indicators.treasury10yChange20d}%)`
+              : "";
+          console.log(`  ✓ 10Y yield: ${indicators.treasury10y}%${changeStr}`);
           break;
+        }
         case "sp500": {
           indicators.sp500Price = Math.round(price * 100) / 100;
           const high = result.summaryDetail?.fiftyTwoWeekHigh ?? null;
@@ -249,10 +292,37 @@ export async function fetchMacroIndicators(): Promise<MacroIndicators> {
           indicators.oilPrice = Math.round(price * 100) / 100;
           console.log(`  ✓ Oil (WTI): $${indicators.oilPrice}`);
           break;
-        case "dxy":
+        case "dxy": {
           indicators.dxy = Math.round(price * 100) / 100;
-          console.log(`  ✓ USD (DXY): ${indicators.dxy}`);
+          // 5-day change captures macro-shock moves (NFP, CPI, FOMC) that the
+          // level-only label hides. The level can read "neutral" while a fresh
+          // breakout has just occurred — equities and gold care a lot about which.
+          try {
+            const period1 = new Date();
+            period1.setDate(period1.getDate() - 14);
+            const chart = await yahooFinance.chart(ticker, {
+              period1,
+              period2: new Date(),
+              interval: "1d",
+            });
+            const closes = (chart.quotes ?? [])
+              .map((q) => q.close)
+              .filter((c): c is number => c != null);
+            if (closes.length >= 6) {
+              const recent = closes[closes.length - 1];
+              const prior = closes[closes.length - 6];
+              indicators.dxyChange5d = Math.round((recent - prior) * 100) / 100;
+            }
+          } catch (err) {
+            console.warn(`  ⚠ DXY chart fetch failed — ${(err as Error).message}`);
+          }
+          const changeStr =
+            indicators.dxyChange5d != null
+              ? ` (5d: ${indicators.dxyChange5d > 0 ? "+" : ""}${indicators.dxyChange5d})`
+              : "";
+          console.log(`  ✓ USD (DXY): ${indicators.dxy}${changeStr}`);
           break;
+        }
       }
     } catch (err) {
       console.warn(`  ⚠ ${ticker}: macro fetch failed — ${(err as Error).message}`);
@@ -286,7 +356,22 @@ export function formatMacroContext(m: MacroIndicators): string {
           : m.treasury10y >= 3
             ? "moderate"
             : "low — supportive for equities";
-    lines.push(`- 10-Year Treasury yield: ${m.treasury10y}% (${level})`);
+    let trendStr = "";
+    if (m.treasury10yChange20d != null) {
+      const c = m.treasury10yChange20d;
+      const direction =
+        c > 0.15
+          ? "rising fast — bond prices falling, attractive entry"
+          : c > 0.05
+            ? "rising — bonds cheaper than a month ago"
+            : c >= -0.05
+              ? "flat"
+              : c >= -0.15
+                ? "falling — bonds rallying, late to chase"
+                : "falling fast — bond rally underway, poor entry timing";
+      trendStr = ` | 20d change: ${c > 0 ? "+" : ""}${c}% (${direction})`;
+    }
+    lines.push(`- 10-Year Treasury yield: ${m.treasury10y}% (${level})${trendStr}`);
   }
   if (m.sp500Price != null) {
     let sp500Line = `- S&P 500: ${m.sp500Price.toLocaleString()}`;
@@ -318,7 +403,23 @@ export function formatMacroContext(m: MacroIndicators): string {
           : m.dxy >= 97
             ? "neutral"
             : "weak — tailwind for multinationals";
-    lines.push(`- USD Index (DXY): ${m.dxy} (${level})`);
+    let trendStr = "";
+    if (m.dxyChange5d != null) {
+      const c = m.dxyChange5d;
+      // ~0.5 index points = ~0.5% on DXY — a meaningful weekly move
+      const direction =
+        c > 0.5
+          ? "spiking — fresh dollar strength, headwind for gold/multinationals/EM"
+          : c > 0.2
+            ? "rising — strengthening dollar"
+            : c >= -0.2
+              ? "flat"
+              : c >= -0.5
+                ? "falling — softening dollar"
+                : "dropping fast — dollar weakness, tailwind for gold/multinationals";
+      trendStr = ` | 5d change: ${c > 0 ? "+" : ""}${c} (${direction})`;
+    }
+    lines.push(`- USD Index (DXY): ${m.dxy} (${level})${trendStr}`);
   }
 
   if (lines.length === 1) return ""; // No data fetched
