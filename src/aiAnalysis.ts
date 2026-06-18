@@ -13,12 +13,7 @@ import type { ReasoningHistory } from "./state.js";
 import type { AIBuyRecommendation as _AIBuyRecommendation } from "./providers/types.js";
 import { runAIAnalysis } from "./aiOrchestrator.js";
 
-0. IMPORTANT: When writing reasons and discussing tickers, use the full company/ETF name provided in parentheses, not generic phrases like "This ETF" or "The stock". Always refer to tickers by their full name when appropriate (e.g., "Microsoft is oversold" instead of "This stock is oversold").
-
-
 export type AIBuyRecommendation = _AIBuyRecommendation;
-
-
 
 export async function aiAnalyze(
   report: AllocationReport,
@@ -36,5 +31,4 @@ export async function aiAnalyze(
     macroContext,
     reasoningHistory,
   });
-
 }
