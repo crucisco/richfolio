@@ -12,13 +12,15 @@ import {
   sendIntradayTelegram,
   sendRefreshTelegram,
 } from "./telegram.js";
-import { getLatestPrice } from "./fetchPrices.js";
+import { applyLatestPrice } from "./util.js";
 import { sendWeeklyBrief } from "./weeklyEmail.js";
 import { saveBaseline, loadBaseline, loadReasoningHistory, saveReasoningHistory } from "./state.js";
 import { compareWithBaseline } from "./intradayCompare.js";
 import { sendIntradayAlert, sendRefreshEmail } from "./intradayEmail.js";
+import { sendSocialPosts, intradayAlertsToSignals } from "./social.js";
 import { fetchDetailedAnalyses } from "./detailedAnalysis.js";
 import { buildAnalysisUrl } from "./analysisUrl.js";
+import { hasStrongBuyVote, findStrongBuyVoter } from "./aiAggregation.js";
 
 import type { AIBuyRecommendation } from "./aiAnalysis.js";
 import type { QuoteData } from "./fetchPrices.js";
@@ -32,11 +34,14 @@ async function enrichStrongBuysWithAnalysis(
   report: AllocationReport,
   macroContext: string = "",
 ): Promise<void> {
-  const strongBuys = aiRecs.filter((r) => r.action === "STRONG BUY");
-  if (strongBuys.length === 0) return;
+  // Include consensus STRONG BUYs AND split cases where at least one provider
+  // voted STRONG BUY but the unanimity rule capped the consensus at BUY —
+  // the user still wants to read the dissenting provider's full thesis.
+  const eligible = aiRecs.filter(hasStrongBuyVote);
+  if (eligible.length === 0) return;
 
   const detailedMap = await fetchDetailedAnalyses(
-    strongBuys.map((r) => r.ticker),
+    eligible.map((r) => r.ticker),
     prices,
     technicals,
     aiRecs,
@@ -44,7 +49,7 @@ async function enrichStrongBuysWithAnalysis(
     macroContext,
   );
 
-  for (const rec of strongBuys) {
+  for (const rec of eligible) {
     const detailed = detailedMap[rec.ticker];
     if (!detailed) continue;
 
@@ -52,19 +57,26 @@ async function enrichStrongBuysWithAnalysis(
     const tech = technicals[rec.ticker];
     if (!quote) continue;
 
+    // When consensus is BUY but a provider voted STRONG BUY (split case),
+    // encode the STRONG BUY voter's view into the analysis page URL — that's
+    // the thesis the reader wants to see when they click "More Details".
+    // For consensus STRONG BUY, use rec as-is (existing behaviour).
+    const sbVoter = rec.action !== "STRONG BUY" ? findStrongBuyVoter(rec) : null;
+    const view = sbVoter ?? rec;
+
     rec.analysisUrl = buildAnalysisUrl({
       ticker: rec.ticker,
       date: new Date().toISOString().slice(0, 10),
-      action: rec.action,
-      confidence: rec.confidence,
-      reason: rec.reason,
+      action: view.action,
+      confidence: view.confidence,
+      reason: view.reason,
       buyThesis: detailed.buyThesis,
       risks: detailed.risks,
-      suggestedBuyValue: rec.suggestedBuyValue,
-      suggestedLimitPrice: rec.suggestedLimitPrice,
-      limitPriceReason: rec.limitPriceReason,
-      valueRating: rec.valueRating,
-      bottomSignal: rec.bottomSignal,
+      suggestedBuyValue: view.suggestedBuyValue,
+      suggestedLimitPrice: view.suggestedLimitPrice,
+      limitPriceReason: view.limitPriceReason,
+      valueRating: view.valueRating,
+      bottomSignal: view.bottomSignal,
       price: quote.price,
       trailingPE: quote.trailingPE,
       forwardPE: quote.forwardPE,
@@ -110,6 +122,25 @@ try {
     );
   }
   // fxSkipped is also passed to email/Telegram footers in later tasks
+
+  // Upgrade each quote to the latest available price (after-hours / pre-market)
+  // for daily + intraday briefs, so analysis, limit prices, the morning
+  // baseline, and intraday comparison all reason about current extended-hours
+  // trading rather than the stale regular-session close. applyLatestPrice also
+  // rescales the price-derived fields (P/E, 52w position) and is a no-op when
+  // no extended-hours quote is available (e.g. overnight/weekends). Weekly keeps
+  // regular prices; refresh mode does its own per-ticker upgrade in its branch.
+  if (!isWeekly && !isRefresh) {
+    for (const q of Object.values(prices)) {
+      const latest = applyLatestPrice(q);
+      if (latest.source !== "regular") {
+        console.log(
+          `  ${q.ticker}: using ${latest.source} price $${q.price.toFixed(2)} (regular close $${latest.regularPrice.toFixed(2)})`,
+        );
+      }
+    }
+  }
+
   const macroContext = formatMacroContext(macroIndicators);
   const report = runAnalysis(prices);
 
@@ -145,13 +176,12 @@ try {
 
     console.log(`\nMode: refresh analysis for ${refreshTicker}`);
 
-    // Use after-hours/pre-market price if available
+    // Use after-hours/pre-market price if available (also rescales P/E + 52w)
     const quote = prices[refreshTicker];
-    const latest = getLatestPrice(quote);
-    console.log(`  Regular price: $${quote.price.toFixed(2)}`);
+    const latest = applyLatestPrice(quote);
+    console.log(`  Regular price: $${latest.regularPrice.toFixed(2)}`);
     if (latest.source !== "regular") {
-      console.log(`  ${latest.source} price: $${latest.price.toFixed(2)} (using this)`);
-      quote.price = latest.price;
+      console.log(`  ${latest.source} price: $${quote.price.toFixed(2)} (using this)`);
     }
 
     // Re-run analysis with updated price, fetch technicals for target only
@@ -255,6 +285,11 @@ try {
       } catch (err) {
         console.error("Telegram send failed:", (err as Error).message);
       }
+      try {
+        await sendSocialPosts(intradayAlertsToSignals(alerts), "intraday");
+      } catch (err) {
+        console.error("Social post failed:", (err as Error).message);
+      }
 
       // Update baseline so next intraday check compares against post-alert state
       saveBaseline({
@@ -304,6 +339,11 @@ try {
       await sendTelegramBrief(report, news, aiRecs, technicals, prices);
     } catch (err) {
       console.error("Telegram send failed:", (err as Error).message);
+    }
+    try {
+      await sendSocialPosts(aiRecs, "daily");
+    } catch (err) {
+      console.error("Social post failed:", (err as Error).message);
     }
   }
 

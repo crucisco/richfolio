@@ -1,12 +1,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
+import Anthropic from "@anthropic-ai/sdk";
 import type { AllocationReport } from "./analyze.js";
 import type { QuoteData } from "./fetchPrices.js";
 import type { TechnicalData } from "./fetchTechnicals.js";
 import type { AIBuyRecommendation } from "./aiAnalysis.js";
 import { defaultCurrency } from "./config.js";
 import { formatMoney } from "./util.js";
-
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+import { buildActiveProviders } from "./providers/index.js";
+import { findStrongBuyVoter } from "./aiAggregation.js";
 
 // ── Types ───────────────────────────────────────────────────────────
 export interface DetailedAnalysis {
@@ -15,8 +16,10 @@ export interface DetailedAnalysis {
   risks: string[];
 }
 
+type DetailedProviderId = "gemini" | "claude";
+
 // ── Gemini response schema ──────────────────────────────────────────
-const detailedSchema = {
+const geminiDetailedSchema = {
   type: Type.OBJECT,
   properties: {
     buyThesis: {
@@ -33,7 +36,40 @@ const detailedSchema = {
   propertyOrdering: ["buyThesis", "risks"],
 };
 
-// ── Build per-ticker prompt ─────────────────────────────────────────
+// ── Claude tool schema (JSON Schema; portable across SDKs) ─────────
+const claudeDetailedSchema = {
+  type: "object" as const,
+  properties: {
+    buyThesis: {
+      type: "string",
+      description: "3-4 paragraph detailed buy thesis (150-200 words total).",
+    },
+    risks: {
+      type: "array",
+      items: { type: "string" },
+      description: "3-4 specific risk factors, each 1 sentence.",
+    },
+  },
+  required: ["buyThesis", "risks"],
+};
+
+// ── Provider selection ─────────────────────────────────────────────
+// Pick which provider generates the detailed STRONG BUY thesis. Priority:
+//   1. AI_DETAILED_PROVIDER env var (explicit override; must be installed)
+//   2. First available provider from buildActiveProviders() (deterministic order)
+// Returns null if no usable provider — caller treats as "skip detailed analysis".
+function pickDetailedProvider(): DetailedProviderId | null {
+  const override = process.env.AI_DETAILED_PROVIDER?.toLowerCase();
+  if (override === "gemini" && process.env.GEMINI_API_KEY) return "gemini";
+  if (override === "claude" && process.env.ANTHROPIC_API_KEY) return "claude";
+
+  const active = buildActiveProviders();
+  const first = active[0]?.id;
+  if (first === "gemini" || first === "claude") return first;
+  return null;
+}
+
+// ── Build per-ticker prompt (shared across providers) ───────────────
 function buildDetailedPrompt(
   ticker: string,
   quote: QuoteData,
@@ -144,51 +180,133 @@ function buildDetailedPrompt(
   return lines.join("\n");
 }
 
+// ── SDK calls (one per provider) ───────────────────────────────────
+async function callGemini(prompt: string): Promise<{ buyThesis?: string; risks?: string[] }> {
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+  const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: prompt,
+    config: { responseMimeType: "application/json", responseSchema: geminiDetailedSchema },
+  });
+  return JSON.parse(response.text ?? "{}") as { buyThesis?: string; risks?: string[] };
+}
+
+async function callClaude(prompt: string): Promise<{ buyThesis?: string; risks?: string[] }> {
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+  const model = process.env.CLAUDE_MODEL || "claude-sonnet-4-6";
+  const response = await client.messages.create({
+    model,
+    max_tokens: 2048,
+    tools: [
+      {
+        name: "submit_detailed_analysis",
+        description: "Submit the structured detailed buy thesis + risks.",
+        input_schema: claudeDetailedSchema,
+      },
+    ],
+    tool_choice: { type: "tool", name: "submit_detailed_analysis" },
+    messages: [{ role: "user", content: prompt }],
+  });
+  for (const block of response.content) {
+    if (block.type === "tool_use" && block.name === "submit_detailed_analysis") {
+      return block.input as { buyThesis?: string; risks?: string[] };
+    }
+  }
+  return {};
+}
+
 // ── Fetch detailed analyses for STRONG BUY tickers ──────────────────
+// `eligibleTickers` includes both consensus STRONG BUYs and split cases
+// where at least one provider voted STRONG BUY but the unanimity rule
+// capped consensus at BUY. For split cases we promote the STRONG BUY
+// voter's view into the prompt and prefer that provider's SDK for the
+// call, so the resulting page reflects their actual reasoning rather
+// than a watered-down consensus.
 export async function fetchDetailedAnalyses(
-  strongBuyTickers: string[],
+  eligibleTickers: string[],
   priceData: Record<string, QuoteData>,
   technicals: Record<string, TechnicalData>,
   aiRecs: AIBuyRecommendation[],
   report: AllocationReport,
   macroContext: string = "",
 ): Promise<Record<string, DetailedAnalysis>> {
-  if (!GEMINI_API_KEY || strongBuyTickers.length === 0) return {};
+  if (eligibleTickers.length === 0) return {};
 
-  console.log("Generating detailed analysis for STRONG BUY tickers...");
+  const defaultProviderId = pickDetailedProvider();
+  if (!defaultProviderId) {
+    console.log("No AI provider available for detailed analysis — skipping");
+    return {};
+  }
 
-  const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+  const explicitOverride = process.env.AI_DETAILED_PROVIDER?.toLowerCase();
   const recMap = new Map(aiRecs.map((r) => [r.ticker, r]));
   const result: Record<string, DetailedAnalysis> = {};
 
-  for (const ticker of strongBuyTickers) {
+  for (const ticker of eligibleTickers) {
     const quote = priceData[ticker];
     const rec = recMap.get(ticker);
     if (!quote || !rec) continue;
+
+    // Decide per-ticker which view + which provider drives the page.
+    // Consensus STRONG BUY → use rec as-is + default provider.
+    // Split (consensus BUY but a provider voted STRONG BUY) → promote that
+    // provider's view + use that provider's SDK (unless user pinned via
+    // AI_DETAILED_PROVIDER env, in which case we respect the override).
+    const sbVoter = rec.action !== "STRONG BUY" ? findStrongBuyVoter(rec) : null;
+    const promptRec: AIBuyRecommendation = sbVoter
+      ? {
+          ...rec,
+          action: sbVoter.action,
+          confidence: sbVoter.confidence,
+          reason: sbVoter.reason,
+          suggestedBuyValue: sbVoter.suggestedBuyValue,
+          suggestedLimitPrice: sbVoter.suggestedLimitPrice,
+          limitPriceReason: sbVoter.limitPriceReason,
+          valueRating: sbVoter.valueRating,
+          bottomSignal: sbVoter.bottomSignal,
+        }
+      : rec;
+
+    // Provider selection priority:
+    //   1. Explicit AI_DETAILED_PROVIDER env override (user pinned)
+    //   2. STRONG BUY voter (split case)
+    //   3. The actual provider(s) that produced this rec — important when
+    //      multi-mode degraded to single (e.g. Gemini 503'd, Claude survived):
+    //      defaultProviderId is still "gemini" by registry order, but Gemini
+    //      will fail again. Prefer the survivor.
+    //   4. Fall back to registry default.
+    const recProviderIds = (rec.providers ?? [])
+      .map((p) => p.providerId)
+      .filter((id): id is DetailedProviderId => id === "gemini" || id === "claude");
+
+    const providerId: DetailedProviderId =
+      explicitOverride === "gemini" || explicitOverride === "claude"
+        ? (explicitOverride as DetailedProviderId)
+        : sbVoter && (sbVoter.providerId === "gemini" || sbVoter.providerId === "claude")
+          ? (sbVoter.providerId as DetailedProviderId)
+          : recProviderIds.length === 1
+            ? recProviderIds[0]
+            : recProviderIds.includes(defaultProviderId)
+              ? defaultProviderId
+              : (recProviderIds[0] ?? defaultProviderId);
+
+    const tag = sbVoter
+      ? ` (split — using ${providerId} STRONG BUY voter)`
+      : recProviderIds.length === 1 && recProviderIds[0] !== defaultProviderId
+        ? ` (${providerId} — only survivor of multi-AI run)`
+        : ` (${providerId})`;
+    console.log(`  Detailed analysis: ${ticker}${tag}`);
 
     try {
       const prompt = buildDetailedPrompt(
         ticker,
         quote,
         technicals[ticker],
-        rec,
+        promptRec,
         report,
         macroContext,
       );
-
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: detailedSchema,
-        },
-      });
-
-      const parsed = JSON.parse(response.text ?? "{}") as {
-        buyThesis?: string;
-        risks?: string[];
-      };
+      const parsed = providerId === "claude" ? await callClaude(prompt) : await callGemini(prompt);
 
       if (parsed.buyThesis) {
         result[ticker] = {

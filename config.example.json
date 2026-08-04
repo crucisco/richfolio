@@ -24,11 +24,18 @@
   },
   "totalPortfolioValue": 50000,
   "defaultCurrency": "USD",
+  "watching": ["MSFT", "NVDA", "AMD"],
   "intradayAlerts": {
     "enabled": true,
     "confidenceIncreaseThreshold": 10,
     "minConfidenceToAlert": 80,
     "actionUpgradesAlert": true,
-    "onlyAlertForActions": ["STRONG BUY", "BUY"]
+    "onlyAlertForActions": ["STRONG BUY", "BUY"],
+    "minPriceMovePctToAlert": 1.0
+  },
+  "social": {
+    "enabled": true,
+    "includeLinkInX": false,
+    "hashtags": ["investing", "stocks", "stockmarket", "ETFs"]
   }
 }

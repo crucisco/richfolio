@@ -6,7 +6,7 @@ nav_order: 2
 
 # Features
 
-Richfolio packs 18+ capabilities into a single pipeline — all running on free-tier APIs.
+Richfolio packs 19+ capabilities into a single pipeline — all running on free-tier APIs.
 
 ---
 
@@ -136,6 +136,22 @@ The analysis uses the higher of your actual portfolio value or configured estima
 
 ---
 
+## Watch List (Research Tickers)
+
+The optional `watching` array in `config.json` tracks tickers you want **scored and surfaced as signals** without committing them to a target allocation. Watch tickers go through the same fetch + AI pipeline as portfolio tickers, but bypass allocation-based rules:
+
+- Excluded from allocation percentage maths — your portfolio total stays at 100%
+- Allocation-gap rules (gap ≥ 2% for STRONG BUY, gap > 0% required) **do not apply**
+- Don't count against the max-2 STRONG BUY cap — every qualifying watch STRONG BUY surfaces
+- `suggestedBuyValue` is always 0 — you decide position size manually
+- Rendered in a separate "Watch List" section in email and Telegram (yellow heading, dashed separator)
+
+Because there's no allocation gap to anchor on, watch STRONG BUYs require stronger signal confluence: ≥1 price-level signal + ≥2 momentum signals + no major red flags + value rating A/B (for stocks). Use the watch list for research candidates you might add to your target portfolio later — *"is now a good time to start a position in NVDA?"* — without polluting your allocation maths.
+
+See [Configuration → Watch List](configuration#watch-list) for the schema.
+
+---
+
 ## Dynamic P/E Signals
 
 Trailing P/E is compared against a historically-computed average P/E derived from Yahoo Finance's earnings history data. No manual benchmarks needed — the system fetches quarterly EPS data and computes the average automatically.
@@ -243,3 +259,15 @@ Every report is delivered through two channels:
 - **Telegram** — condensed plain-text summary via Telegram Bot API, optimized for mobile reading (includes technicals and limit prices for STRONG BUY)
 
 Both channels work independently — if one isn't configured, the other still delivers.
+
+---
+
+## Social Posting (Optional)
+
+Beyond email and Telegram, Richfolio can **optionally** publish buy signals to public social accounts — **X/Twitter**, a **Facebook Page**, a **Threads** account, and a **LinkedIn Page** — in daily and intraday modes (never weekly or refresh). Posts are deliberately generic: only **STRONG BUY** and **BUY** signals, each showing ticker, action, confidence, and a short reason.
+
+Nothing private is disclosed — allocations, gaps, holdings, and suggested buy amounts are **never** posted (a sanitizer also strips any such figures from the AI's reason text), and portfolio and watch-list tickers are merged uniformly as "signals" so ownership is never revealed. The ticker is rendered as a clickable `#hashtag` on Facebook / Threads / LinkedIn, plus a configurable set of generic hashtags, to boost reach. Every post ends with a *"Not financial advice"* disclaimer.
+
+Each platform is independently gated on its own credentials and posts inside its own error boundary, so a social failure never affects the email/Telegram briefs. It stays completely off until you add credentials.
+
+See [Social Posting](social-setup) for full setup (Facebook, LinkedIn, X) and the `config.json` toggle.

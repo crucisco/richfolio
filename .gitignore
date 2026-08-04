@@ -5,3 +5,9 @@ config.json
 state/
 .DS_Store
 .claude/settings.local.json
+_site/
+docs/.jekyll-cache/
+docs/Gemfile.lock
+
+# Playwright MCP scratch
+.playwright-mcp/
