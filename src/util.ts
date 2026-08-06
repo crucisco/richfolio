@@ -10,6 +10,71 @@ export const SUB_UNIT_FIX: Record<string, { realCurrency: string; divisor: numbe
   ZAc: { realCurrency: "ZAR", divisor: 100 }, // JSE cents
 };
 
+// ── Latest price selection + price-derived rescale ───────────────────
+// Prefer the freshest available quote: after-hours → pre-market → regular.
+export function getLatestPrice(quote: QuoteData): { price: number; source: string } {
+  if (quote.postMarketPrice != null && quote.postMarketPrice > 0) {
+    return { price: quote.postMarketPrice, source: "after-hours" };
+  }
+  if (quote.preMarketPrice != null && quote.preMarketPrice > 0) {
+    return { price: quote.preMarketPrice, source: "pre-market" };
+  }
+  return { price: quote.price, source: "regular" };
+}
+
+// Swap the quote's price to the latest available (after-hours/pre-market)
+// value and rescale the price-derived fields so they stay consistent with it:
+//   • trailing/forward P/E scale by latest/regularClose (P/E = price / EPS,
+//     and EPS is fixed between earnings)
+//   • 52-week position is recomputed from the fresh price within the 52w range
+// Momentum technicals (RSI, MACD, MA-distance, Bollinger) are intentionally
+// NOT adjusted — they come from daily chart candles in fetchTechnicals and
+// cannot be derived from a single spot price. No-op when only the regular
+// price is available. Returns the source and the original regular close (both
+// for logging). Matters most on large after-hours gaps (e.g. earnings) where
+// Yahoo's close-based P/E would otherwise lag the price we actually use.
+export function applyLatestPrice(quote: QuoteData): { source: string; regularPrice: number } {
+  const regularPrice = quote.price;
+  const latest = getLatestPrice(quote);
+  if (latest.source === "regular" || regularPrice <= 0) {
+    return { source: "regular", regularPrice };
+  }
+  const ratio = latest.price / regularPrice;
+  if (quote.trailingPE != null) quote.trailingPE *= ratio;
+  if (quote.forwardPE != null) quote.forwardPE *= ratio;
+  if (
+    quote.fiftyTwoWeekHigh != null &&
+    quote.fiftyTwoWeekLow != null &&
+    quote.fiftyTwoWeekHigh > quote.fiftyTwoWeekLow
+  ) {
+    quote.fiftyTwoWeekPercent =
+      Math.round(
+        ((latest.price - quote.fiftyTwoWeekLow) /
+          (quote.fiftyTwoWeekHigh - quote.fiftyTwoWeekLow)) *
+          1000,
+      ) / 1000;
+  }
+  quote.price = latest.price;
+  return { source: latest.source, regularPrice };
+}
+
+// Pick the price to measure trend-position metrics against (distance from the
+// 50/200-day moving averages, and the momentum trend label). Prefer the fresh
+// spot price (`quote.price`, which by this point holds the after-hours /
+// pre-market value) so MA-distance stays consistent with the price used for
+// allocation and P/E — instead of the chart's last daily close. Falls back to
+// the close when the spot price is missing, or when its ratio to the close is
+// outside ±50%: that band flags a units mismatch (sub-unit currencies such as
+// LSE pence are quoted ÷100 in `quote.price` but not in the raw chart closes)
+// or an erroneous thin after-hours print, neither of which is a real move.
+export function resolveTrendPrice(closeLast: number, spotPrice?: number | null): number {
+  if (spotPrice != null && spotPrice > 0 && closeLast > 0) {
+    const ratio = spotPrice / closeLast;
+    if (ratio >= 0.5 && ratio <= 2) return spotPrice;
+  }
+  return closeLast;
+}
+
 // ── FX conversion ────────────────────────────────────────────────────
 // Multiply the 9 monetary fields of a QuoteData by `rate`. Non-monetary
 // fields (P/E ratios, yield, beta, etc.) are left untouched.

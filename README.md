@@ -14,8 +14,12 @@
 [![npm](https://img.shields.io/npm/v/richfolio?logo=npm&logoColor=white)](https://www.npmjs.com/package/richfolio)
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
 [![Cost](https://img.shields.io/badge/Cost-%240%2Fmonth-2ecc71)](https://furic.github.io/richfolio/features)
+[![Facebook](https://img.shields.io/badge/Facebook-richfolioapp-1877F2?logo=facebook&logoColor=white)](https://www.facebook.com/richfolioapp/)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-richfolio-0A66C2?logo=linkedin&logoColor=white)](https://www.linkedin.com/company/richfolio)
 
 A zero-maintenance portfolio monitoring system. Set your target allocations once, get daily briefings with allocation gaps, AI-powered buy signals, and relevant news — delivered via email and Telegram, automatically via GitHub Actions.
+
+> 📣 Follow Richfolio's public signals on [Facebook](https://www.facebook.com/richfolioapp/) and [LinkedIn](https://www.linkedin.com/company/richfolio) — generic STRONG BUY / BUY signals, no holdings disclosed. *Not financial advice.*
 
 <p align="center">
   <img src="docs/screenshots/morning-debrief.png" alt="Daily Brief" width="260">
@@ -53,6 +57,7 @@ What Richfolio does is **monitor your portfolio daily** and help you decide **wh
 - **Reasoning Persistence** — 7-day rolling history of AI conviction per ticker, showing the AI how its own recommendations evolved over time to identify trend momentum
 - **Limit Order Prices** — AI-suggested limit order prices based on nearby support levels (moving averages, recent lows, round numbers)
 - **Allocation Gap Analysis** — current vs target %, flagged by priority with suggested buy amounts
+- **Watch List** — optional `watching` array tracks tickers as research signals without committing them to a target allocation; rendered in a separate section, bypasses allocation-based rules, doesn't compete with portfolio STRONG BUYs
 - **Dynamic P/E Signals** — trailing P/E compared against historical averages fetched from Yahoo Finance (no manual benchmarks needed)
 - **ETF Overlap Detection** — reduces buy priority for ETFs where you already hold overlapping stocks (e.g., holding AAPL reduces VOO's priority)
 - **52-Week Range Signals** — highlights tickers near their 52-week low (opportunity) or high (caution)

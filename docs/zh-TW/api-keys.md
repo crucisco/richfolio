@@ -145,6 +145,20 @@ Google 的定價頁面聲明 Gemini 2.5 Pro 對輸入與輸出 token 都是["免
 
 ---
 
+## 社群發文 — 可選
+{: .text-yellow-200}
+
+Richfolio 可將通用的買進訊號發布到 X、Facebook、Threads 與 LinkedIn 的公開頁面。每個平台皆為可選,在設定完成前都保持關閉。各平台所需的 Secret:
+
+- **Facebook:** `FACEBOOK_PAGE_ID`、`FACEBOOK_PAGE_TOKEN`
+- **Threads:** `THREADS_USER_ID`、`THREADS_ACCESS_TOKEN`(+ 可選的 `THREADS_TOKEN_PAT` 以自動更新約 60 天的 token)
+- **LinkedIn:** `LINKEDIN_ACCESS_TOKEN`、`LINKEDIN_ORG_URN`
+- **X/Twitter:** `X_API_KEY`、`X_API_SECRET`、`X_ACCESS_TOKEN`、`X_ACCESS_TOKEN_SECRET`
+
+**注意:** 貼文為通用內容 — 不會揭露任何持倉或配置。未設定時,社群發文會被略過。各平台的逐步設定詳見[社群發文](social-setup)。
+
+---
+
 ## 彙整
 
 | 金鑰 | 必填 | 服務 |
@@ -156,5 +170,10 @@ Google 的定價頁面聲明 Gemini 2.5 Pro 對輸入與輸出 token 都是["免
 | `ANTHROPIC_API_KEY` | 否 | AI 服務商(Anthropic Claude) |
 | `TELEGRAM_BOT_TOKEN` | 否 | Telegram 投遞 |
 | `TELEGRAM_CHAT_ID` | 否 | Telegram 投遞 |
+| `FACEBOOK_PAGE_ID` / `FACEBOOK_PAGE_TOKEN` | 否 | Facebook 粉絲專頁發文 |
+| `THREADS_USER_ID` / `THREADS_ACCESS_TOKEN` | 否 | Threads 發文 |
+| `THREADS_TOKEN_PAT` | 否 | 自動更新 Threads token(具備 Secrets 寫入權限的 PAT) |
+| `LINKEDIN_ACCESS_TOKEN` / `LINKEDIN_ORG_URN` | 否 | LinkedIn 頁面發文 |
+| `X_API_KEY` / `X_API_SECRET` / `X_ACCESS_TOKEN` / `X_ACCESS_TOKEN_SECRET` | 否 | X/Twitter 發文 |
 | `CLAUDE_MODEL` | 否 | 覆寫 Claude 模型(預設:`claude-sonnet-4-6`) |
 | `AI_DETAILED_PROVIDER` | 否 | 強制使用 `gemini` 或 `claude` 產生 STRONG BUY 詳細分析頁 |

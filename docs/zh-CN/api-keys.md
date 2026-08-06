@@ -145,6 +145,20 @@ Google 的定价页面声明 Gemini 2.5 Pro 对输入和输出 token 都是["免
 
 ---
 
+## 社交发布 — 可选
+{: .text-yellow-200}
+
+Richfolio 可以把通用的买入信号发布到 X、Facebook、Threads 和 LinkedIn 的公开账号。每个平台都是可选的,在配置之前保持关闭。各平台所需的 Secret:
+
+- **Facebook:** `FACEBOOK_PAGE_ID`、`FACEBOOK_PAGE_TOKEN`
+- **Threads:** `THREADS_USER_ID`、`THREADS_ACCESS_TOKEN`(+ 可选的 `THREADS_TOKEN_PAT`,用于自动刷新约 60 天过期的令牌)
+- **LinkedIn:** `LINKEDIN_ACCESS_TOKEN`、`LINKEDIN_ORG_URN`
+- **X/Twitter:** `X_API_KEY`、`X_API_SECRET`、`X_ACCESS_TOKEN`、`X_ACCESS_TOKEN_SECRET`
+
+**注意:** 发布内容是通用的 — 不会泄露任何持仓或配置。若未设置,社交发布会被跳过。各平台的逐步设置详见 [社交发布](social-setup)。
+
+---
+
 ## 汇总
 
 | 密钥 | 必填 | 服务 |
@@ -156,5 +170,10 @@ Google 的定价页面声明 Gemini 2.5 Pro 对输入和输出 token 都是["免
 | `ANTHROPIC_API_KEY` | 否 | AI 服务商(Anthropic Claude) |
 | `TELEGRAM_BOT_TOKEN` | 否 | Telegram 投递 |
 | `TELEGRAM_CHAT_ID` | 否 | Telegram 投递 |
+| `FACEBOOK_PAGE_ID` / `FACEBOOK_PAGE_TOKEN` | 否 | Facebook 主页发布 |
+| `THREADS_USER_ID` / `THREADS_ACCESS_TOKEN` | 否 | Threads 发布 |
+| `THREADS_TOKEN_PAT` | 否 | 自动刷新 Threads 令牌(带 Secrets 写权限的 PAT) |
+| `LINKEDIN_ACCESS_TOKEN` / `LINKEDIN_ORG_URN` | 否 | LinkedIn 主页发布 |
+| `X_API_KEY` / `X_API_SECRET` / `X_ACCESS_TOKEN` / `X_ACCESS_TOKEN_SECRET` | 否 | X/Twitter 发布 |
 | `CLAUDE_MODEL` | 否 | 覆盖 Claude 模型(默认:`claude-sonnet-4-6`) |
 | `AI_DETAILED_PROVIDER` | 否 | 强制使用 `gemini` 或 `claude` 生成 STRONG BUY 详细分析页 |

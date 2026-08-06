@@ -1,6 +1,13 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { formatMoney, applyFxRate, SUB_UNIT_FIX } from "../src/util.js";
+import {
+  formatMoney,
+  applyFxRate,
+  SUB_UNIT_FIX,
+  getLatestPrice,
+  applyLatestPrice,
+  resolveTrendPrice,
+} from "../src/util.js";
 import type { QuoteData } from "../src/fetchPrices.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -172,4 +179,123 @@ describe("SUB_UNIT_FIX map", () => {
 
   test("GBP is not in the map (only the pence sub-unit is)", () =>
     assert.equal(SUB_UNIT_FIX["GBP"], undefined));
+});
+
+// ── getLatestPrice ───────────────────────────────────────────────────
+
+describe("getLatestPrice — freshest-quote preference", () => {
+  test("prefers after-hours over pre-market and regular", () => {
+    const { price, source } = getLatestPrice(
+      makeQuote({ price: 100, postMarketPrice: 110, preMarketPrice: 105 }),
+    );
+    assert.equal(price, 110);
+    assert.equal(source, "after-hours");
+  });
+
+  test("falls back to pre-market when post-market is null", () => {
+    const { price, source } = getLatestPrice(
+      makeQuote({ price: 100, postMarketPrice: null, preMarketPrice: 105 }),
+    );
+    assert.equal(price, 105);
+    assert.equal(source, "pre-market");
+  });
+
+  test("falls back to regular when both extended-hours prices are null", () => {
+    const { price, source } = getLatestPrice(
+      makeQuote({ price: 100, postMarketPrice: null, preMarketPrice: null }),
+    );
+    assert.equal(price, 100);
+    assert.equal(source, "regular");
+  });
+});
+
+// ── applyLatestPrice ─────────────────────────────────────────────────
+
+describe("applyLatestPrice — swap price + rescale price-derived fields", () => {
+  test("after-hours: scales P/E and recomputes 52w position", () => {
+    const q = makeQuote({
+      price: 100,
+      postMarketPrice: 110, // +10%
+      preMarketPrice: null,
+      trailingPE: 20,
+      forwardPE: 18,
+      fiftyTwoWeekHigh: 150,
+      fiftyTwoWeekLow: 50,
+      fiftyTwoWeekPercent: 0.5,
+    });
+    const res = applyLatestPrice(q);
+    assert.equal(res.source, "after-hours");
+    assert.equal(res.regularPrice, 100);
+    assert.equal(q.price, 110);
+    assert.equal(q.trailingPE, 22); // 20 × 1.1
+    assert.ok(Math.abs(q.forwardPE! - 19.8) < 1e-9); // 18 × 1.1
+    assert.equal(q.fiftyTwoWeekPercent, 0.6); // (110-50)/(150-50)
+  });
+
+  test("no extended-hours quote: no-op, leaves fields untouched", () => {
+    const q = makeQuote({
+      price: 100,
+      postMarketPrice: null,
+      preMarketPrice: null,
+      trailingPE: 20,
+      fiftyTwoWeekPercent: 0.5,
+    });
+    const res = applyLatestPrice(q);
+    assert.equal(res.source, "regular");
+    assert.equal(q.price, 100);
+    assert.equal(q.trailingPE, 20);
+    assert.equal(q.fiftyTwoWeekPercent, 0.5);
+  });
+
+  test("null P/E (e.g. ETF) stays null while 52w still recomputes", () => {
+    const q = makeQuote({
+      price: 100,
+      postMarketPrice: 90, // -10%
+      preMarketPrice: null,
+      trailingPE: null,
+      forwardPE: null,
+      fiftyTwoWeekHigh: 150,
+      fiftyTwoWeekLow: 50,
+    });
+    applyLatestPrice(q);
+    assert.equal(q.price, 90);
+    assert.equal(q.trailingPE, null);
+    assert.equal(q.forwardPE, null);
+    assert.equal(q.fiftyTwoWeekPercent, 0.4); // (90-50)/100
+  });
+});
+
+// ── resolveTrendPrice ────────────────────────────────────────────────
+// Chart closes are in raw units (close × fxRate, no sub-unit divisor); the
+// spot price is in final default currency. They match for normal currencies
+// but are ~100× apart for sub-unit ones (LSE pence) — the ±50% guard keeps
+// those (and erroneous thin prints) on the close.
+
+describe("resolveTrendPrice — fresh spot with sanity guard", () => {
+  test("uses the spot price for a normal after-hours move", () => {
+    assert.equal(resolveTrendPrice(100, 103), 103); // +3%
+    assert.equal(resolveTrendPrice(100, 92), 92); // -8%
+  });
+
+  test("falls back to close when spot is missing", () => {
+    assert.equal(resolveTrendPrice(100), 100);
+    assert.equal(resolveTrendPrice(100, null), 100);
+    assert.equal(resolveTrendPrice(100, 0), 100);
+  });
+
+  test("falls back to close on a units mismatch (sub-unit currency)", () => {
+    // quote.price in £ (÷100) vs chart close in pence → ratio ≈ 0.01
+    assert.equal(resolveTrendPrice(5000, 50), 5000);
+  });
+
+  test("falls back to close on an absurd ratio (bad thin print)", () => {
+    assert.equal(resolveTrendPrice(100, 250), 100); // +150% is never a real move
+    assert.equal(resolveTrendPrice(100, 40), 100); // -60%
+  });
+
+  test("boundaries: ±50% is accepted, just beyond is rejected", () => {
+    assert.equal(resolveTrendPrice(100, 50), 50); // ratio 0.5 → accepted
+    assert.equal(resolveTrendPrice(100, 200), 200); // ratio 2.0 → accepted
+    assert.equal(resolveTrendPrice(100, 49), 100); // ratio 0.49 → rejected
+  });
 });

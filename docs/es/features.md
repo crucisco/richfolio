@@ -8,7 +8,7 @@ permalink: /features.html
 
 # Funcionalidades
 
-Richfolio empaqueta más de 18 capacidades en un único pipeline — todas funcionando sobre APIs de plan gratuito.
+Richfolio empaqueta más de 19 capacidades en un único pipeline — todas funcionando sobre APIs de plan gratuito.
 
 ---
 
@@ -138,6 +138,22 @@ El análisis usa el mayor entre el valor real de tu portafolio o la estimación 
 
 ---
 
+## Watch List (tickers de investigación)
+
+El array opcional `watching` en `config.json` rastrea tickers que quieres que sean **puntuados y se muestren como señales** sin comprometerlos a una asignación objetivo. Los tickers de watch pasan por el mismo pipeline de fetch + IA que los tickers del portafolio, pero saltan las reglas basadas en asignación:
+
+- Excluidos de las matemáticas de porcentaje de asignación — el total de tu portafolio se mantiene en 100%
+- Las reglas de brecha de asignación (gap ≥ 2% para STRONG BUY, gap > 0% requerido) **no aplican**
+- No cuentan contra el tope de máximo 2 STRONG BUY — cada watch STRONG BUY que califique se muestra
+- `suggestedBuyValue` es siempre 0 — tú decides el tamaño de la posición manualmente
+- Renderizados en una sección separada "Watch List" en correo y Telegram (encabezado amarillo, separador discontinuo)
+
+Como no hay una brecha de asignación en la cual anclarse, los STRONG BUYs de watch requieren una confluencia de señales más fuerte: ≥1 señal de nivel de precio + ≥2 señales de momentum + sin señales de riesgo mayores + calificación de valor A/B (para acciones). Usa la watch list para candidatos de investigación que podrías agregar a tu portafolio objetivo más adelante — *"¿es buen momento para iniciar una posición en NVDA?"* — sin contaminar las matemáticas de asignación.
+
+Ver [Configuración → Watch List](configuration#watch-list) para el esquema.
+
+---
+
 ## Señales dinámicas de P/E
 
 El P/E trailing se compara contra un P/E promedio calculado históricamente derivado de los datos de earnings history de Yahoo Finance. No se necesitan benchmarks manuales — el sistema obtiene los datos trimestrales de EPS y calcula el promedio automáticamente.
@@ -245,3 +261,15 @@ Cada reporte se entrega por dos canales:
 - **Telegram** — resumen condensado en texto plano vía Telegram Bot API, optimizado para lectura móvil (incluye técnicos y precios límite para STRONG BUY)
 
 Ambos canales funcionan de forma independiente — si uno no está configurado, el otro sigue entregando.
+
+---
+
+## Publicación en redes sociales (opcional)
+
+Más allá del correo y Telegram, Richfolio puede **opcionalmente** publicar señales de compra en cuentas sociales públicas — **X/Twitter**, una **Página de Facebook**, una cuenta de **Threads** y una **Página de LinkedIn** — en los modos diario e intradía (nunca en semanal ni refresh). Las publicaciones son deliberadamente genéricas: solo señales **STRONG BUY** y **BUY**, cada una mostrando ticker, acción, confianza y una breve razón.
+
+No se divulga nada privado — asignaciones, brechas, tenencias y montos de compra sugeridos **nunca** se publican (un sanitizador además elimina cualquiera de esas cifras del texto de la razón de la IA), y los tickers del portafolio y de la watch list se combinan de forma uniforme como "señales" para que la propiedad nunca se revele. El ticker se renderiza como un `#hashtag` clicable en Facebook / Threads / LinkedIn, más un conjunto configurable de hashtags genéricos, para aumentar el alcance. Cada publicación termina con un descargo de responsabilidad *"Not financial advice"*.
+
+Cada plataforma está condicionada de forma independiente a sus propias credenciales y publica dentro de su propio límite de error, de modo que una falla social nunca afecta los resúmenes de correo/Telegram. Permanece completamente desactivado hasta que agregues credenciales.
+
+Ver [Publicación en redes sociales](social-setup) para la configuración completa (Facebook, LinkedIn, X) y el interruptor de `config.json`.

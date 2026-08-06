@@ -33,7 +33,9 @@ Richfolio 用一份 JSON 設定承載所有投資組合資料 — 你的組合�
     "VOO": 1,
     "BTC": 0.0002
   },
-  "totalPortfolioValueUSD": 50000,
+  "watching": ["MSFT", "NVDA", "AMD"],
+  "totalPortfolioValue": 50000,
+  "defaultCurrency": "USD",
   "intradayAlerts": {
     "enabled": true,
     "confidenceIncreaseThreshold": 10
@@ -49,7 +51,9 @@ Richfolio 用一份 JSON 設定承載所有投資組合資料 — 你的組合�
 |------|------|------|
 | `targetPortfolio` | 是 | 目標配置百分比。鍵為股票代碼,值為百分比,總和應約為 100%。 |
 | `currentHoldings` | 是 | 你目前持有的股數。可以包含不在目標組合中的股票(例如 AAPL 用於 ETF 重疊偵測)。 |
-| `totalPortfolioValueUSD` | 是 | 你估計的投資組合總價值(美元)。當實際持倉小於目標時,用於配置計算。 |
+| `watching` | 否 | 追蹤但**不在**目標投資組合中的股票代碼陣列。會被抓取、由 AI 評分,並在獨立的「Watch List」區塊呈現 — 不會干擾配置計算。詳見下方[觀察清單](#watch-list)。 |
+| `totalPortfolioValue` | 是 | 你估計的投資組合總價值(以 `defaultCurrency` 為單位)。當實際持倉小於目標時,用於配置計算。 |
+| `defaultCurrency` | 否 | ISO 4217 貨幣代碼(例如 `"USD"`、`"GBP"`、`"AUD"`)。預設值:`"USD"`。電子郵件/Telegram 中的金額皆以此貨幣呈現;不符的標的會透過 Yahoo Finance 即時匯率換算。 |
 | `intradayAlerts` | 否 | 盤中警示設定(見下)。省略時套用預設值。 |
 
 ---
@@ -77,6 +81,55 @@ Richfolio 用一份 JSON 設定承載所有投資組合資料 — 你的組合�
 Actions → Portfolio Monitor → **Run workflow** → mode: `refresh`、ticker: `SMH`。
 
 可用時會使用 Yahoo Finance 的 `postMarketPrice` 與 `preMarketPrice`。盤後資料無法取得時會回退到一般市價。
+
+---
+
+## 觀察清單 (Watch List)
+{: #watch-list }
+
+可選的 `watching` 陣列用於追蹤你想**被評分並以訊號形式呈現**、但不想納入目標投資組合的標的。它們會跟組合內標的一起被抓取、送入提示詞、並由 AI 評分,但會繞過所有基於配置的規則。
+
+**適合在以下情境使用:**
+
+- 你還在研究某檔股票,尚未決定要給多少目標權重
+- 你想看到目前未持有標的的建議(例如 *「現在是不是建立 NVDA 部位的好時機?」*)
+- 你想取得某些標的的訊號,又不想讓投資組合總和超過 100%
+
+### Watch 標的與組合標的的差異
+
+| 行為 | 組合標的 | Watch 標的 |
+|---|---|---|
+| 計入配置百分比 | 是 | **否** |
+| 計算配置缺口 | 是 | **否** |
+| 需要 `缺口 ≥ 2%` 才能 STRONG BUY | 是 | **否** — STRONG BUY 改以訊號匯流為依據 |
+| 套用超額部位守護 | 是 | **否** |
+| 計入最多 2 個 STRONG BUY 上限 | 是 | **否** — 所有符合條件的 watch STRONG BUY 都會呈現 |
+| 填入 `suggestedBuyValue` | 是(依缺口計算) | **永遠為 0** — 由你自行決定部位規模 |
+| 出現在主要的「AI Buy Recommendations」區塊 | 是 | 否 — 在獨立的「Watch List」區塊 |
+| 建議限價單價格 | 是 | 是(同樣邏輯) |
+| 詳細 STRONG BUY 分析頁面 | 是 | 是 |
+
+### Watch 標的的 STRONG BUY 標準
+
+由於沒有配置缺口可作為錨點,watch 標的需要更強的訊號匯流才能達到 STRONG BUY:
+
+- ≥ 1 個價位訊號(P/E 低於歷史均值、52 週位置 < 30%,或價格低於 200 日均線)
+- ≥ 2 個動能訊號確認該價位訊號(RSI < 35、MACD 看漲交叉、布林通道 %B < 0.15、隨機指標 %K < 20、OBV 上升)
+- 無重大紅旗
+- 僅依訊號匯流即達信心度 ≥ 80%
+- 價值評級 A 或 B(僅針對股票;ETF 與加密貨幣略過此條件)
+
+### 範例
+
+```json
+{
+  "targetPortfolio": { "VOO": 20, "GLD": 10, ... },
+  "currentHoldings": { "VOO": 5, "AAPL": 30 },
+  "watching": ["MSFT", "NVDA", "AMD", "AVGO"]
+}
+```
+
+此投資組合持有 AAPL + VOO,並單純把 MSFT/NVDA/AMD/AVGO 當作研究訊號追蹤。Watch 標的在電子郵件/Telegram 中有自己的區塊,永遠不會讓組合總和超過 100%,也不會擠掉組合內的 STRONG BUY 名額。
 
 ---
 
