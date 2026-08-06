@@ -5,7 +5,7 @@ on:
     # Enable/disable according to daylight savings time
     # Daily morning: 8am UTC
     # - cron: "0 8 * * *" 
-    # British Summer Time: 9am UTC = 8am BST (BST = UTC+1)
+    # British Summer Time: 7am UTC = 8am BST (BST = UTC+1)
     - cron: "0 7 * * *"
 
     # Intraday checks: weekdays, ~3.75h apart across the waking window
