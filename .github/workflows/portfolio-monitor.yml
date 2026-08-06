@@ -3,18 +3,26 @@ name: Portfolio Monitor
 on:
   schedule:
     # Enable/disable according to daylight savings time
-    # Daily morning: 8am UTC (next day)
-    # Daily morning: 10pm UTC = 8am AEST (next day)
-    - cron: "0 22 * * *"
-    # Daily morning: 8am UTC (next day)
+    # Daily morning: 8am UTC
     # - cron: "0 8 * * *" 
-    # British Summer Time: 7am BST = 8am UTC
-    - cron: "0 7 * * *"
-        # Daily morning: 8am UTC (next day)
-    # - cron: "0 8 * * *" 
-    # British Summer Time: 7am BST = 8am UTC
+    # British Summer Time: 9am UTC = 8am BST (BST = UTC+1)
     - cron: "0 7 * * *"
 
+    # Intraday checks: weekdays, ~3.75h apart across the waking window
+    # (≈9:30am morning brief → 00:30am AEST). Times are UTC; AEST = UTC+10.
+    # NOTE: GitHub's scheduler routinely fires crons 30min–2h late, so treat
+    # these as approximate. The last two land during US pre-market / open, so
+    # those checks see real price movement (the frozen-data guard in
+    # intradayCompare.ts silences the earlier US-closed ones unless price moved).
+    # https://markethours.io/market/nyse
+    
+    # - cron: "45 11 * * 1-5"   # 11:45am UTC  (US pre-market)
+    # - cron: "30 15 * * 1-5"   # 15:30 UTC (US market open)
+    # - cron: "15 19 * * 1-5"    # 19:15 UTC  (US market open)
+    - cron: "45 10 * * 1-5"   # 11:45am BST  (US pre-market)
+    - cron: "30 14 * * 1-5"   # 15:30 BST (US market open)
+    - cron: "15 18 * * 1-5"    # 19:15 BST  (US market open)
+    
   workflow_dispatch:
     inputs:
       mode:
